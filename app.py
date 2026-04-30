@@ -2,6 +2,7 @@ import streamlit as st
 from streamlit_option_menu import option_menu
 import google.generativeai as genai
 import pandas as pd
+import plotly.express as px
 import os
 import time
 from datetime import datetime
@@ -42,6 +43,8 @@ st.markdown("""
     .stButton>button:hover { background-color: #d4af37; color: #002244; }
     [data-testid="stSidebar"] { background-color: #001f3f !important; }
     [data-testid="stSidebarNav"] {display: none;}
+    /* Mempercantik kotak metrik */
+    [data-testid="stMetricValue"] { color: #d4af37; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -52,7 +55,7 @@ with st.sidebar:
         menu_title=None,
         options=["AI Dashboard", "Data Input Center", "Student Tracker", "Database Management"],
         icons=["grid", "server", "people", "hdd-stack"], 
-        default_index=1, 
+        default_index=0, 
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#e0e0e0", "font-size": "18px"}, 
@@ -62,23 +65,61 @@ with st.sidebar:
     )
 
 # ==========================================
-# HALAMAN 1: AI DASHBOARD
+# HALAMAN 1: AI DASHBOARD (SUPER UPGRADE!)
 # ==========================================
 if menu == "AI Dashboard":
     st.title("AI Dashboard 🧠")
+    st.markdown("Ringkasan pergerakan batin komunitas sekolah berdasarkan data refleksi.")
+    st.write("---")
+    
     try:
         df = pd.read_csv(DB_BATIN)
         if not df.empty:
+            # 1. Baris Atas: Angka Ringkasan Cepat
             jumlah_konsolasi = len(df[df['Status Awal'] == 'Konsolasi'])
             jumlah_desolasi = len(df[df['Status Awal'] == 'Desolasi'])
+            total_data = len(df)
             
-            col1, col2 = st.columns(2)
-            col1.metric("Total Konsolasi", jumlah_konsolasi)
-            col2.metric("Total Desolasi", jumlah_desolasi)
+            col1, col2, col3 = st.columns(3)
+            col1.metric("Total Refleksi Masuk", total_data)
+            col2.metric("Dominasi Konsolasi", f"{jumlah_konsolasi} Orang")
+            col3.metric("Dominasi Desolasi", f"{jumlah_desolasi} Orang")
+            
+            st.write("---")
+            
+            # 2. Baris Tengah: Visualisasi Grafik
+            col_chart1, col_chart2 = st.columns([1, 1.5])
+            
+            with col_chart1:
+                st.markdown("#### Persentase Batin Global")
+                fig_pie = px.pie(
+                    df, 
+                    names='Status Awal', 
+                    color='Status Awal',
+                    color_discrete_map={'Konsolasi':'#27ae60', 'Desolasi':'#c0392b'},
+                    hole=0.4
+                )
+                fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0))
+                st.plotly_chart(fig_pie, use_container_width=True)
+                
+            with col_chart2:
+                st.markdown("#### Sebaran Batin per Unit")
+                df_unit = df.groupby(['Unit', 'Status Awal']).size().reset_index(name='Jumlah')
+                fig_bar = px.bar(
+                    df_unit, 
+                    x='Unit', 
+                    y='Jumlah', 
+                    color='Status Awal',
+                    barmode='group',
+                    color_discrete_map={'Konsolasi':'#27ae60', 'Desolasi':'#c0392b'}
+                )
+                fig_bar.update_layout(margin=dict(t=0, b=0, l=0, r=0))
+                st.plotly_chart(fig_bar, use_container_width=True)
+                
         else:
-            st.info("Belum ada data untuk ditampilkan grafiknya.")
-    except:
-        pass
+            st.info("Belum ada data refleksi yang masuk. Silakan input data di menu 'Data Input Center' dulu.")
+    except Exception as e:
+        st.error(f"Gagal memuat Dashboard: {e}")
 
 # ==========================================
 # HALAMAN 2: DATA INPUT CENTER
@@ -88,7 +129,6 @@ elif menu == "Data Input Center":
     st.write("---")
     
     df_master = pd.read_csv(DB_MASTER)
-    
     col1, col2 = st.columns([1, 1])
     
     with col1:
@@ -150,25 +190,18 @@ elif menu == "Data Input Center":
         if df_master.empty:
             st.warning("⚠️ Upload Data Master dulu di menu 'Database Management' biar bisa pilih nama otomatis!")
         else:
-            # 1. Pilih Unit Dulu
             list_unit = df_master['Unit'].dropna().unique().tolist()
             unit_terpilih = st.selectbox("Pilih Unit", sorted(list_unit))
-            
             df_unit_itu = df_master[df_master['Unit'] == unit_terpilih]
             
-            # 2. Cek apakah Unit ini punya Kelas (Kalau Guru/Staff biasanya kosong/NaN)
             list_kelas = [k for k in df_unit_itu['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
-            
             if list_kelas:
-                # Jika ada kelas (Siswa)
                 kelas_terpilih = st.selectbox("Pilih Kelas", sorted(list_kelas))
                 df_final = df_unit_itu[df_unit_itu['Kelas'] == kelas_terpilih]
             else:
-                # Jika tidak ada kelas (Guru/Staff)
                 kelas_terpilih = "-"
                 df_final = df_unit_itu
                 
-            # 3. Pilih Nama sesuai filter di atas
             list_nama = df_final['Nama Siswa'].dropna().tolist()
             nama_terpilih = st.selectbox("Pilih Nama", sorted(list_nama))
             
