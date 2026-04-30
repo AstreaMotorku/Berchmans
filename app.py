@@ -1,9 +1,18 @@
 import streamlit as st
+import google.generativeai as genai
+import os
 
-# 1. PENGATURAN HALAMAN DASAR
+# 1. SETUP API GEMINI (Ambil kunci dari brankas rahasia)
+try:
+    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
+    # Pake model flash yang paling ngebut buat mikir teks
+    model = genai.GenerativeModel('gemini-1.5-flash') 
+except Exception as e:
+    st.error("⚠️ API Key Gemini belum terpasang di Secrets!")
+
+# 2. PENGATURAN HALAMAN DASAR
 st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide")
 
-# 2. WARNA & TEMA (Sesuai panduan lu: Academic Blue)
 st.markdown("""
     <style>
     .main { background-color: #f4f6f9; }
@@ -15,9 +24,9 @@ st.markdown("""
 # 3. SIDEBAR NAVIGASI
 st.sidebar.title("🕊️ Berchmans Lite")
 st.sidebar.write("Head of Campus Ministry Portal")
-menu = st.sidebar.radio("Navigasi:", ["AI Dashboard", "Data Input Center", "Student Tracker"])
+menu = st.sidebar.radio("Navigasi:", ["Data Input Center", "AI Dashboard", "Student Tracker"])
 
-# 4. LOGIKA HALAMAN: DATA INPUT CENTER
+# 4. DATA INPUT CENTER
 if menu == "Data Input Center":
     st.title("Data Input Center 📥")
     st.subheader("Upload Excel atau input refleksi manual untuk diproses AI")
@@ -25,37 +34,52 @@ if menu == "Data Input Center":
     
     col1, col2 = st.columns([1, 1])
     
-    # Bagian Kiri: Upload Excel
     with col1:
         st.markdown("### 📊 Bulk Excel Import")
-        st.info("Upload file template CSV lu di sini.")
+        st.info("Fitur baca Excel massal akan segera diaktifkan.")
         uploaded_file = st.file_uploader("Tarik dan lepas file di sini", type=['csv', 'xlsx'])
-        
-        if uploaded_file is not None:
-            st.success("✅ File berhasil dibaca sistem! (Nanti kita sambungkan ke AI di sini)")
             
-    # Bagian Kanan: Input Manual
     with col2:
-        st.markdown("### ✍️ Manual Single Entry")
-        st.warning("Input cepat untuk siswa satuan.")
+        st.markdown("### ✍️ Manual Single Entry & AI Check")
+        st.warning("Input cepat untuk siswa satuan dan tes analisis AI.")
         
         kelas = st.selectbox("Pilih Kelas", ["Kelas 7A", "Kelas 8B", "Kelas 9A", "Kelas 10C", "Kelas 12A"])
         nama = st.text_input("Nama Siswa")
-        batin = st.radio("Dominasi Batin", ["Konsolasi", "Desolasi"], horizontal=True)
-        refleksi = st.text_area("Teks Refleksi / Bundling")
+        batin = st.radio("Dominasi Batin (Self-Reported)", ["Konsolasi", "Desolasi"], horizontal=True)
+        refleksi = st.text_area("Teks Refleksi / Narasi Batin Siswa")
         
-        if st.button("Simpan Data"):
+        if st.button("Simpan & Analisis dengan AI"):
             if nama and refleksi:
-                st.success(f"✅ Data {nama} dari {kelas} berhasil disimpan!")
+                with st.spinner('Memanggil Otak Gemini... 🧠'):
+                    # Prompt Rahasia buat AI-nya
+                    prompt = f"""
+                    Kamu adalah seorang konselor pastoral dan pendidik Jesuit di SMP/SMA. 
+                    Tugasmu adalah menganalisis teks refleksi batin siswa ini.
+                    
+                    Nama Siswa: {nama}
+                    Teks Refleksi: "{refleksi}"
+                    
+                    Tolong berikan:
+                    1. Konfirmasi sentimen (Apakah teks ini cenderung Konsolasi atau Desolasi menurut analisamu?)
+                    2. Apa kata kunci (tema utama) dari kegelisahan/kebahagiaan anak ini?
+                    3. Berikan 1 kalimat pendek rekomendasi pendampingan (Cura Personalis) untuk guru/konselor.
+                    
+                    Jawab dengan format poin-poin yang singkat dan profesional.
+                    """
+                    try:
+                        response = model.generate_content(prompt)
+                        st.success(f"✅ Data {nama} ({kelas}) tersimpan sementara!")
+                        st.markdown("### 🤖 Hasil Analisis AI Gemini:")
+                        st.info(response.text)
+                    except Exception as e:
+                        st.error(f"AI gagal mikir: {e}")
             else:
                 st.error("Nama dan Teks Refleksi harus diisi Bro!")
 
-# 5. LOGIKA HALAMAN: AI DASHBOARD
 elif menu == "AI Dashboard":
     st.title("AI Dashboard 🧠")
-    st.info("Nanti di sini Gemini AI akan membaca database lu dan mengeluarkan kesimpulan tren batin (Konsolasi vs Desolasi) per unit dan per kelas.")
+    st.info("Nanti data yang lu input akan direkap di sini jadi grafik keren.")
 
-# 6. LOGIKA HALAMAN: STUDENT TRACKER
 elif menu == "Student Tracker":
     st.title("Student Insights Directory 🔍")
-    st.info("Nanti lu bisa cari nama siswa di sini, dan melihat grafik riwayat batin mereka beserta saran intervensi (Cura Personalis) dari AI.")
+    st.info("Database siswa lengkap ada di sini.")
