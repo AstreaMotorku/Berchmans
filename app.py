@@ -235,17 +235,19 @@ elif menu == "Student Insights (AI)":
                             for index, row in df_siswa_terakhir.iterrows():
                                 kumpulan_teks += f"- [{row['Tanggal']}] ({row['Status Awal']}): {row['Refleksi']}\n"
                             
+                            # Prompt Khusus AI (General & To The Point)
                             prompt = f"""
-                            Sebagai pendamping pastoral berlandaskan Spiritualitas Ignasian, tugasmu adalah menganalisis rekap Examen Conscientiae / jurnal batin harian siswa ini selama beberapa hari terakhir.
+                            Sebagai seorang konselor pendidikan dan psikologi sekolah, tugasmu adalah menganalisis rekap jurnal harian siswa ini selama beberapa hari terakhir. 
+                            PENTING: Jangan perkenalkan dirimu atau berbasa-basi. Langsung berikan analisisnya.
 
                             Nama: {filter_nama}
                             Riwayat Jurnal:
                             {kumpulan_teks}
 
                             Tolong berikan balasan profesional dengan format:
-                            1. **Pola Batin:** (Apakah grafiknya bergerak dari desolasi ke konsolasi, atau sebaliknya? Apa pemicu utamanya?)
-                            2. **Kesimpulan Ringkas:** (Kondisi psikologis/spiritual anak ini saat ini)
-                            3. **Rekomendasi Cura Personalis:** (Langkah nyata yang sangat spesifik untuk konselor/guru dalam mendampingi anak ini)
+                            1. **Pola Emosi:** (Bagaimana tren emosinya? Apa pemicu utamanya?)
+                            2. **Kesimpulan Ringkas:** (Kondisi psikologis siswa saat ini)
+                            3. **Rekomendasi Pendampingan:** (Langkah nyata yang sangat spesifik untuk wali kelas / guru BK)
                             """
                             
                             try:
