@@ -4,19 +4,33 @@ import pandas as pd
 import os
 from datetime import datetime
 
-# 1. SETUP API & DATABASE
+# 1. SETUP API & RADAR MODEL OTOMATIS
 try:
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    model = genai.GenerativeModel('gemini-pro') 
+    
+    # Radar untuk mencari model yang tersedia dan support generate text
+    valid_models = []
+    for m in genai.list_models():
+        if 'generateContent' in m.supported_generation_methods:
+            valid_models.append(m.name)
+            
+    if valid_models:
+        # Otomatis pakai model pertama yang nyangkut di radar (Pasti jalan!)
+        model_name = valid_models[0].replace("models/", "")
+        model = genai.GenerativeModel(model_name)
+    else:
+        st.error("⚠️ API Key lu valid, tapi gak dapet akses model. Coba bikin API Key baru.")
+        
 except Exception as e:
-    st.error("⚠️ API Key Gemini belum terpasang!")
+    st.error(f"⚠️ Ada masalah sama koneksi API lu: {e}")
 
+# 2. SETUP DATABASE LOKAL
 DB_FILE = "database_batin.csv"
 if not os.path.exists(DB_FILE):
     df_awal = pd.DataFrame(columns=["Tanggal", "Kelas", "Nama Siswa", "Status Awal", "Refleksi", "Analisis AI"])
     df_awal.to_csv(DB_FILE, index=False)
 
-# 2. PENGATURAN HALAMAN
+# 3. PENGATURAN HALAMAN
 st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide")
 st.markdown("""
     <style>
@@ -26,12 +40,12 @@ st.markdown("""
     </style>
     """, unsafe_allow_html=True)
 
-# 3. NAVIGASI
+# 4. NAVIGASI
 st.sidebar.title("🕊️ Berchmans Lite")
 st.sidebar.write("Head of Campus Ministry Portal")
 menu = st.sidebar.radio("Navigasi:", ["Data Input Center", "Student Tracker", "AI Dashboard"])
 
-# 4. HALAMAN INPUT & ANALISIS
+# 5. HALAMAN INPUT & ANALISIS
 if menu == "Data Input Center":
     st.title("Data Input Center 📥")
     st.write("---")
@@ -77,7 +91,7 @@ if menu == "Data Input Center":
             else:
                 st.error("Nama dan Refleksi wajib diisi!")
 
-# 5. HALAMAN DATABASE TRACKER
+# 6. HALAMAN DATABASE TRACKER
 elif menu == "Student Tracker":
     st.title("Student Insights Directory 🔍")
     st.write("Ini adalah database mentah hasil input lu. Lu bisa download ini nanti untuk laporan unit atau bahan penelitian.")
@@ -87,12 +101,11 @@ elif menu == "Student Tracker":
         if df.empty:
             st.warning("Database masih kosong. Silakan input data di menu 'Data Input Center' dulu.")
         else:
-            # Menampilkan tabel database
             st.dataframe(df, use_container_width=True)
     except FileNotFoundError:
         st.error("Database belum terbentuk.")
 
-# 6. HALAMAN DASHBOARD (Draft)
+# 7. HALAMAN DASHBOARD (Draft)
 elif menu == "AI Dashboard":
     st.title("AI Dashboard 🧠")
     st.info("Di sini nanti akan muncul grafik tren batin sekolah berdasarkan database.")
