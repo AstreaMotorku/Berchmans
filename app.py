@@ -43,7 +43,6 @@ st.markdown("""
     .stButton>button:hover { background-color: #d4af37; color: #002244; }
     [data-testid="stSidebar"] { background-color: #001f3f !important; }
     [data-testid="stSidebarNav"] {display: none;}
-    /* Mempercantik kotak metrik */
     [data-testid="stMetricValue"] { color: #d4af37; font-weight: bold; }
     </style>
     """, unsafe_allow_html=True)
@@ -65,7 +64,7 @@ with st.sidebar:
     )
 
 # ==========================================
-# HALAMAN 1: AI DASHBOARD (SUPER UPGRADE!)
+# HALAMAN 1: AI DASHBOARD 
 # ==========================================
 if menu == "AI Dashboard":
     st.title("AI Dashboard 🧠")
@@ -75,7 +74,6 @@ if menu == "AI Dashboard":
     try:
         df = pd.read_csv(DB_BATIN)
         if not df.empty:
-            # 1. Baris Atas: Angka Ringkasan Cepat
             jumlah_konsolasi = len(df[df['Status Awal'] == 'Konsolasi'])
             jumlah_desolasi = len(df[df['Status Awal'] == 'Desolasi'])
             total_data = len(df)
@@ -87,17 +85,13 @@ if menu == "AI Dashboard":
             
             st.write("---")
             
-            # 2. Baris Tengah: Visualisasi Grafik
             col_chart1, col_chart2 = st.columns([1, 1.5])
             
             with col_chart1:
                 st.markdown("#### Persentase Batin Global")
                 fig_pie = px.pie(
-                    df, 
-                    names='Status Awal', 
-                    color='Status Awal',
-                    color_discrete_map={'Konsolasi':'#27ae60', 'Desolasi':'#c0392b'},
-                    hole=0.4
+                    df, names='Status Awal', color='Status Awal',
+                    color_discrete_map={'Konsolasi':'#27ae60', 'Desolasi':'#c0392b'}, hole=0.4
                 )
                 fig_pie.update_layout(margin=dict(t=0, b=0, l=0, r=0))
                 st.plotly_chart(fig_pie, use_container_width=True)
@@ -106,16 +100,11 @@ if menu == "AI Dashboard":
                 st.markdown("#### Sebaran Batin per Unit")
                 df_unit = df.groupby(['Unit', 'Status Awal']).size().reset_index(name='Jumlah')
                 fig_bar = px.bar(
-                    df_unit, 
-                    x='Unit', 
-                    y='Jumlah', 
-                    color='Status Awal',
-                    barmode='group',
+                    df_unit, x='Unit', y='Jumlah', color='Status Awal', barmode='group',
                     color_discrete_map={'Konsolasi':'#27ae60', 'Desolasi':'#c0392b'}
                 )
                 fig_bar.update_layout(margin=dict(t=0, b=0, l=0, r=0))
                 st.plotly_chart(fig_bar, use_container_width=True)
-                
         else:
             st.info("Belum ada data refleksi yang masuk. Silakan input data di menu 'Data Input Center' dulu.")
     except Exception as e:
@@ -251,7 +240,7 @@ elif menu == "Student Tracker":
         st.error("Database belum terbentuk.")
 
 # ==========================================
-# HALAMAN 4: DATABASE MANAGEMENT
+# HALAMAN 4: DATABASE MANAGEMENT (DI-UPGRADE)
 # ==========================================
 elif menu == "Database Management":
     st.title("Manajemen Database Siswa & Staff 🗃️")
@@ -269,16 +258,37 @@ elif menu == "Database Management":
                 else:
                     df_upload = pd.read_excel(file_master)
                 
-                if st.button("Simpan ke Master Database"):
-                    df_upload.to_csv(DB_MASTER, index=False)
-                    st.success("✅ Master Data berhasil diperbarui!")
+                st.warning("Pilih mode penyimpanan:")
+                col_btn1, col_btn2 = st.columns(2)
+                
+                with col_btn1:
+                    if st.button("➕ Tambah ke Data Lama"):
+                        df_lama = pd.read_csv(DB_MASTER)
+                        df_gabung = pd.concat([df_lama, df_upload], ignore_index=True)
+                        df_gabung.drop_duplicates(subset=['Nama Siswa', 'Unit', 'Kelas'], keep='last', inplace=True)
+                        df_gabung.to_csv(DB_MASTER, index=False)
+                        st.success("✅ Master Data berhasil ditambah!")
+                
+                with col_btn2:
+                    if st.button("🔄 Timpa Semua (Reset)"):
+                        df_upload.to_csv(DB_MASTER, index=False)
+                        st.success("✅ Master Data lama dihapus, diganti yang baru!")
+                        
             except Exception as e:
                 st.error(f"Gagal baca file: {e}")
                 
     with col2:
         st.markdown("### Isi Master Data Saat Ini:")
-        df_master = pd.read_csv(DB_MASTER)
-        if not df_master.empty:
-            st.dataframe(df_master, use_container_width=True)
-        else:
+        try:
+            df_master = pd.read_csv(DB_MASTER)
+            if not df_master.empty:
+                st.dataframe(df_master, use_container_width=True)
+                
+                st.write("---")
+                if st.button("🗑️ Kosongkan Seluruh Master Data"):
+                    pd.DataFrame(columns=["Nama Siswa", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
+                    st.success("Master data berhasil dikosongkan! Refresh halaman ya.")
+            else:
+                st.warning("Data Master masih kosong Bro!")
+        except Exception as e:
             st.warning("Data Master masih kosong Bro!")
