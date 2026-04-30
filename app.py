@@ -32,7 +32,7 @@ DB_BATIN = "database_batin.csv"
 if not os.path.exists(DB_MASTER):
     pd.DataFrame(columns=["Nama Siswa", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
 if not os.path.exists(DB_BATIN):
-    pd.DataFrame(columns=["Tanggal", "Unit", "Kelas", "Nama Siswa", "Status Awal", "Refleksi", "Analisis AI"]).to_csv(DB_BATIN, index=False)
+    pd.DataFrame(columns=["Tanggal", "Unit", "Kelas", "Nama Siswa", "Status Awal", "Refleksi"]).to_csv(DB_BATIN, index=False)
 
 # 4. TEMA & WARNA 
 st.markdown("""
@@ -52,9 +52,9 @@ with st.sidebar:
     st.markdown('<p style="color:#8ba1b5; font-size:12px; font-weight:700; letter-spacing:1.5px; margin-bottom: 0px; margin-left: 15px;">MAIN MENU</p>', unsafe_allow_html=True)
     menu = option_menu(
         menu_title=None,
-        options=["AI Dashboard", "Data Input Center", "Student Tracker", "Database Management"],
+        options=["AI Dashboard", "Data Input Center", "Student Insights (AI)", "Database Management"],
         icons=["grid", "server", "people", "hdd-stack"], 
-        default_index=0, 
+        default_index=1, 
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#e0e0e0", "font-size": "18px"}, 
@@ -80,8 +80,8 @@ if menu == "AI Dashboard":
             
             col1, col2, col3 = st.columns(3)
             col1.metric("Total Refleksi Masuk", total_data)
-            col2.metric("Dominasi Konsolasi", f"{jumlah_konsolasi} Orang")
-            col3.metric("Dominasi Desolasi", f"{jumlah_desolasi} Orang")
+            col2.metric("Dominasi Konsolasi", f"{jumlah_konsolasi} Laporan")
+            col3.metric("Dominasi Desolasi", f"{jumlah_desolasi} Laporan")
             
             st.write("---")
             
@@ -106,78 +106,54 @@ if menu == "AI Dashboard":
                 fig_bar.update_layout(margin=dict(t=0, b=0, l=0, r=0))
                 st.plotly_chart(fig_bar, use_container_width=True)
         else:
-            st.info("Belum ada data refleksi yang masuk. Silakan input data di menu 'Data Input Center' dulu.")
+            st.info("Belum ada data refleksi yang masuk.")
     except Exception as e:
         st.error(f"Gagal memuat Dashboard: {e}")
 
 # ==========================================
-# HALAMAN 2: DATA INPUT CENTER
+# HALAMAN 2: DATA INPUT CENTER (FAST ENTRY!)
 # ==========================================
 elif menu == "Data Input Center":
     st.title("Data Input Center 📥")
+    st.write("Input harian sekarang super cepat. AI tidak akan langsung menganalisis agar sistem tidak berat. Analisis AI bisa dilakukan mingguan di menu Student Insights.")
     st.write("---")
     
     df_master = pd.read_csv(DB_MASTER)
     col1, col2 = st.columns([1, 1])
     
     with col1:
-        st.markdown("### 📊 Bulk Excel Import & AI")
-        st.info("Upload Template Refleksi yang udah diisi banyak orang. AI akan menganalisis semuanya sekaligus!")
+        st.markdown("### 📊 Bulk Excel Import (Fast Save)")
         file_refleksi = st.file_uploader("Upload File Refleksi (CSV/Excel)", type=['csv', 'xlsx'], key="bulk")
         
         if file_refleksi:
-            if st.button("🚀 Jalankan Analisis AI Massal"):
+            if st.button("🚀 Simpan Massal ke Database"):
                 if file_refleksi.name.endswith('.csv'):
                     df_bulk = pd.read_csv(file_refleksi)
                 else:
                     df_bulk = pd.read_excel(file_refleksi)
                 
-                progress_bar = st.progress(0)
-                status_text = st.empty()
                 df_batin = pd.read_csv(DB_BATIN)
                 data_baru_list = []
                 
                 for i, row in df_bulk.iterrows():
-                    nama = row.get('Nama Lengkap', row.get('Nama Siswa', 'Anonim'))
-                    unit = row.get('Unit', '-')
-                    kelas = row.get('Kelas', '-')
-                    batin = row.get('Dominasi Batin', 'Tidak Diketahui')
-                    refleksi = row.get('Teks Refleksi', '')
-                    
-                    status_text.text(f"Sedang menganalisis {nama}...")
-                    
-                    if str(refleksi).strip() and str(refleksi).lower() != 'nan':
-                        prompt = f"Sebagai pendelor pastoral, analisis refleksi ini. Nama: {nama}. Refleksi: '{refleksi}'. Berikan 1 kata kunci masalah/kebahagiaan, dan 1 kalimat saran pendampingan."
-                        try:
-                            response = model.generate_content(prompt)
-                            hasil_ai = response.text
-                            time.sleep(2) 
-                        except Exception as e:
-                            hasil_ai = "Gagal dianalisis AI"
-                    else:
-                        hasil_ai = "Tidak ada teks refleksi."
-                        
                     data_baru_list.append({
                         "Tanggal": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                        "Unit": unit,
-                        "Kelas": kelas,
-                        "Nama Siswa": nama,
-                        "Status Awal": batin,
-                        "Refleksi": refleksi,
-                        "Analisis AI": hasil_ai
+                        "Unit": row.get('Unit', '-'),
+                        "Kelas": row.get('Kelas', '-'),
+                        "Nama Siswa": row.get('Nama Lengkap', row.get('Nama Siswa', 'Anonim')),
+                        "Status Awal": row.get('Dominasi Batin', 'Tidak Diketahui'),
+                        "Refleksi": row.get('Teks Refleksi', '')
                     })
-                    progress_bar.progress((i + 1) / len(df_bulk))
                 
                 df_baru = pd.DataFrame(data_baru_list)
                 df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
                 df_batin.to_csv(DB_BATIN, index=False)
-                status_text.text("✅ Analisis massal selesai!")
-                st.success(f"{len(df_bulk)} data refleksi berhasil dianalisis dan masuk database!")
+                st.success(f"✅ {len(df_bulk)} data berhasil disimpan secara instan!")
 
     with col2:
-        st.markdown("### ✍️ Manual Entry & AI Analysis")
+        st.markdown("### ✍️ Manual Daily Entry")
         if df_master.empty:
-            st.warning("⚠️ Upload Data Master dulu di menu 'Database Management' biar bisa pilih nama otomatis!")
+            st.warning("⚠️ Upload Data Master dulu di menu 'Database Management'!")
         else:
             list_unit = df_master['Unit'].dropna().unique().tolist()
             unit_terpilih = st.selectbox("Pilih Unit", sorted(list_unit))
@@ -195,52 +171,100 @@ elif menu == "Data Input Center":
             nama_terpilih = st.selectbox("Pilih Nama", sorted(list_nama))
             
             batin = st.radio("Dominasi Batin (Self-Reported)", ["Konsolasi", "Desolasi"], horizontal=True)
-            refleksi = st.text_area("Teks Refleksi")
+            refleksi = st.text_area("Teks Refleksi Harian")
             
-            if st.button("Simpan & Analisis"):
+            if st.button("Simpan Laporan Harian"):
                 if refleksi:
-                    with st.spinner(f'Gemini sedang menganalisis batin {nama_terpilih}... 🧠'):
-                        prompt = f"Sebagai pendelor pastoral, analisis refleksi ini. Nama: {nama_terpilih}. Refleksi: '{refleksi}'. Berikan 1 kata kunci masalah/kebahagiaan, dan 1 kalimat saran pendampingan."
-                        try:
-                            response = model.generate_content(prompt)
-                            hasil_ai = response.text
-                            
-                            df = pd.read_csv(DB_BATIN)
-                            data_baru = pd.DataFrame([{
-                                "Tanggal": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                                "Unit": unit_terpilih,
-                                "Kelas": kelas_terpilih,
-                                "Nama Siswa": nama_terpilih,
-                                "Status Awal": batin,
-                                "Refleksi": refleksi,
-                                "Analisis AI": hasil_ai
-                            }])
-                            df = pd.concat([df, data_baru], ignore_index=True)
-                            df.to_csv(DB_BATIN, index=False)
-                            
-                            st.success(f"✅ Data {nama_terpilih} berhasil disimpan ke Database!")
-                            st.info(hasil_ai)
-                        except Exception as e:
-                            st.error(f"Gagal memproses AI: {e}")
+                    df = pd.read_csv(DB_BATIN)
+                    data_baru = pd.DataFrame([{
+                        "Tanggal": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "Unit": unit_terpilih,
+                        "Kelas": kelas_terpilih,
+                        "Nama Siswa": nama_terpilih,
+                        "Status Awal": batin,
+                        "Refleksi": refleksi
+                    }])
+                    df = pd.concat([df, data_baru], ignore_index=True)
+                    df.to_csv(DB_BATIN, index=False)
+                    st.success(f"✅ Refleksi harian {nama_terpilih} tersimpan!")
                 else:
                     st.error("Teks Refleksi wajib diisi!")
 
 # ==========================================
-# HALAMAN 3: STUDENT TRACKER
+# HALAMAN 3: STUDENT INSIGHTS (REKAP AI MINGGUAN)
 # ==========================================
-elif menu == "Student Tracker":
-    st.title("Student Insights Directory 🔍")
+elif menu == "Student Insights (AI)":
+    st.title("Student Insights & Weekly AI 🔍")
+    
     try:
-        df = pd.read_csv(DB_BATIN)
-        if df.empty:
+        df_batin = pd.read_csv(DB_BATIN)
+        if df_batin.empty:
             st.warning("Database refleksi masih kosong.")
         else:
-            st.dataframe(df, use_container_width=True)
+            tab1, tab2 = st.tabs(["👤 Rekap Mingguan Individu (AI)", "📋 Database Lengkap"])
+            
+            # TAB 1: REKAP INDIVIDU DENGAN AI
+            with tab1:
+                st.markdown("### Analisis Batin Mendalam per Individu")
+                st.write("Pilih nama siswa untuk melihat riwayat jurnalnya, lalu minta AI membuat ringkasan dan saran pendampingannya.")
+                
+                col_filter1, col_filter2, col_filter3 = st.columns(3)
+                with col_filter1:
+                    filter_unit = st.selectbox("Filter Unit", sorted(df_batin['Unit'].unique().tolist()))
+                with col_filter2:
+                    df_filtered_unit = df_batin[df_batin['Unit'] == filter_unit]
+                    filter_kelas = st.selectbox("Filter Kelas", sorted(df_filtered_unit['Kelas'].unique().tolist()))
+                with col_filter3:
+                    df_filtered_kelas = df_filtered_unit[df_filtered_unit['Kelas'] == filter_kelas]
+                    filter_nama = st.selectbox("Pilih Nama Siswa", sorted(df_filtered_kelas['Nama Siswa'].unique().tolist()))
+                
+                st.write("---")
+                
+                df_siswa = df_filtered_kelas[df_filtered_kelas['Nama Siswa'] == filter_nama].copy()
+                
+                if df_siswa.empty:
+                    st.info(f"Belum ada data refleksi untuk {filter_nama}.")
+                else:
+                    df_siswa_terakhir = df_siswa.tail(5)
+                    st.markdown(f"**Riwayat Refleksi Terakhir: {filter_nama} (Max 5 Hari)**")
+                    st.dataframe(df_siswa_terakhir[['Tanggal', 'Status Awal', 'Refleksi']], use_container_width=True)
+                    
+                    if st.button(f"🧠 Buat Rekap AI untuk {filter_nama}"):
+                        with st.spinner('Menganalisis pola batin...'):
+                            kumpulan_teks = ""
+                            for index, row in df_siswa_terakhir.iterrows():
+                                kumpulan_teks += f"- [{row['Tanggal']}] ({row['Status Awal']}): {row['Refleksi']}\n"
+                            
+                            prompt = f"""
+                            Sebagai pendamping pastoral berlandaskan Spiritualitas Ignasian, tugasmu adalah menganalisis rekap Examen Conscientiae / jurnal batin harian siswa ini selama beberapa hari terakhir.
+
+                            Nama: {filter_nama}
+                            Riwayat Jurnal:
+                            {kumpulan_teks}
+
+                            Tolong berikan balasan profesional dengan format:
+                            1. **Pola Batin:** (Apakah grafiknya bergerak dari desolasi ke konsolasi, atau sebaliknya? Apa pemicu utamanya?)
+                            2. **Kesimpulan Ringkas:** (Kondisi psikologis/spiritual anak ini saat ini)
+                            3. **Rekomendasi Cura Personalis:** (Langkah nyata yang sangat spesifik untuk konselor/guru dalam mendampingi anak ini)
+                            """
+                            
+                            try:
+                                response = model.generate_content(prompt)
+                                st.success("Analisis selesai!")
+                                st.info(response.text)
+                            except Exception as e:
+                                st.error(f"Gagal memproses AI: {e}")
+            
+            # TAB 2: DATABASE LENGKAP
+            with tab2:
+                st.markdown("### Seluruh Data Mentah")
+                st.dataframe(df_batin, use_container_width=True)
+                
     except FileNotFoundError:
         st.error("Database belum terbentuk.")
 
 # ==========================================
-# HALAMAN 4: DATABASE MANAGEMENT (DI-UPGRADE)
+# HALAMAN 4: DATABASE MANAGEMENT 
 # ==========================================
 elif menu == "Database Management":
     st.title("Manajemen Database Siswa & Staff 🗃️")
@@ -283,11 +307,6 @@ elif menu == "Database Management":
             df_master = pd.read_csv(DB_MASTER)
             if not df_master.empty:
                 st.dataframe(df_master, use_container_width=True)
-                
-                st.write("---")
-                if st.button("🗑️ Kosongkan Seluruh Master Data"):
-                    pd.DataFrame(columns=["Nama Siswa", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
-                    st.success("Master data berhasil dikosongkan! Refresh halaman ya.")
             else:
                 st.warning("Data Master masih kosong Bro!")
         except Exception as e:
