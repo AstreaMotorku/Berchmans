@@ -31,50 +31,33 @@ DB_BATIN = "database_batin.csv"
 if not os.path.exists(DB_MASTER):
     pd.DataFrame(columns=["Nama Siswa", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
 if not os.path.exists(DB_BATIN):
-    pd.DataFrame(columns=["Tanggal", "Kelas", "Nama Siswa", "Status Awal", "Refleksi", "Analisis AI"]).to_csv(DB_BATIN, index=False)
+    pd.DataFrame(columns=["Tanggal", "Unit", "Kelas", "Nama Siswa", "Status Awal", "Refleksi", "Analisis AI"]).to_csv(DB_BATIN, index=False)
 
-# 4. TEMA & WARNA (Custom CSS untuk Sidebar Biru Dongker & Menu Emas)
+# 4. TEMA & WARNA 
 st.markdown("""
     <style>
-    /* Warna Background Utama */
     .main { background-color: #f4f6f9; }
-    
-    /* Warna Header */
     h1, h2, h3 { color: #002244; } 
-    
-    /* Warna Tombol Standar */
     .stButton>button { background-color: #002244; color: white; border-radius: 8px; border: none; }
     .stButton>button:hover { background-color: #d4af37; color: #002244; }
-    
-    /* Custom Sidebar Background */
-    [data-testid="stSidebar"] {
-        background-color: #001f3f !important;
-    }
-    
-    /* Sembunyikan header default sidebar biar lebih rapi */
+    [data-testid="stSidebar"] { background-color: #001f3f !important; }
     [data-testid="stSidebarNav"] {display: none;}
     </style>
     """, unsafe_allow_html=True)
 
-# 5. SIDEBAR NAVIGASI (Desain Baru!)
+# 5. SIDEBAR NAVIGASI
 with st.sidebar:
     st.markdown('<p style="color:#8ba1b5; font-size:12px; font-weight:700; letter-spacing:1.5px; margin-bottom: 0px; margin-left: 15px;">MAIN MENU</p>', unsafe_allow_html=True)
-    
     menu = option_menu(
         menu_title=None,
         options=["AI Dashboard", "Data Input Center", "Student Tracker", "Database Management"],
-        icons=["grid", "server", "people", "hdd-stack"],
-        default_index=1,
+        icons=["grid", "server", "people", "hdd-stack"], 
+        default_index=1, 
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
             "icon": {"color": "#e0e0e0", "font-size": "18px"}, 
             "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "color": "#e0e0e0", "--hover-color": "#003366"},
-            "nav-link-selected": {
-                "background-color": "#dca235",
-                "color": "#001f3f",
-                "font-weight": "bold",
-                "border-radius": "8px"
-            },
+            "nav-link-selected": {"background-color": "#dca235", "color": "#001f3f", "font-weight": "bold", "border-radius": "8px"},
         }
     )
 
@@ -110,8 +93,8 @@ elif menu == "Data Input Center":
     
     with col1:
         st.markdown("### 📊 Bulk Excel Import & AI")
-        st.info("Upload Template Refleksi yang udah diisi banyak siswa. AI akan menganalisis semuanya sekaligus!")
-        file_refleksi = st.file_uploader("Upload File Refleksi Siswa", type=['csv', 'xlsx'], key="bulk")
+        st.info("Upload Template Refleksi yang udah diisi banyak orang. AI akan menganalisis semuanya sekaligus!")
+        file_refleksi = st.file_uploader("Upload File Refleksi (CSV/Excel)", type=['csv', 'xlsx'], key="bulk")
         
         if file_refleksi:
             if st.button("🚀 Jalankan Analisis AI Massal"):
@@ -127,11 +110,12 @@ elif menu == "Data Input Center":
                 
                 for i, row in df_bulk.iterrows():
                     nama = row.get('Nama Lengkap', row.get('Nama Siswa', 'Anonim'))
+                    unit = row.get('Unit', '-')
                     kelas = row.get('Kelas', '-')
                     batin = row.get('Dominasi Batin', 'Tidak Diketahui')
                     refleksi = row.get('Teks Refleksi', '')
                     
-                    status_text.text(f"Sedang menganalisis batin {nama} ({kelas})...")
+                    status_text.text(f"Sedang menganalisis {nama}...")
                     
                     if str(refleksi).strip() and str(refleksi).lower() != 'nan':
                         prompt = f"Sebagai pendelor pastoral, analisis refleksi ini. Nama: {nama}. Refleksi: '{refleksi}'. Berikan 1 kata kunci masalah/kebahagiaan, dan 1 kalimat saran pendampingan."
@@ -146,6 +130,7 @@ elif menu == "Data Input Center":
                         
                     data_baru_list.append({
                         "Tanggal": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                        "Unit": unit,
                         "Kelas": kelas,
                         "Nama Siswa": nama,
                         "Status Awal": batin,
@@ -163,17 +148,32 @@ elif menu == "Data Input Center":
     with col2:
         st.markdown("### ✍️ Manual Entry & AI Analysis")
         if df_master.empty:
-            st.warning("⚠️ Upload Data Master Siswa dulu di menu 'Database Management' biar bisa pilih nama otomatis!")
+            st.warning("⚠️ Upload Data Master dulu di menu 'Database Management' biar bisa pilih nama otomatis!")
         else:
-            list_kelas = df_master['Kelas'].dropna().unique().tolist()
-            kelas_terpilih = st.selectbox("Pilih Kelas", sorted(list_kelas))
+            # 1. Pilih Unit Dulu
+            list_unit = df_master['Unit'].dropna().unique().tolist()
+            unit_terpilih = st.selectbox("Pilih Unit", sorted(list_unit))
             
-            df_kelas_itu = df_master[df_master['Kelas'] == kelas_terpilih]
-            list_nama = df_kelas_itu['Nama Siswa'].dropna().tolist()
-            nama_terpilih = st.selectbox("Pilih Siswa", list_nama)
+            df_unit_itu = df_master[df_master['Unit'] == unit_terpilih]
+            
+            # 2. Cek apakah Unit ini punya Kelas (Kalau Guru/Staff biasanya kosong/NaN)
+            list_kelas = [k for k in df_unit_itu['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
+            
+            if list_kelas:
+                # Jika ada kelas (Siswa)
+                kelas_terpilih = st.selectbox("Pilih Kelas", sorted(list_kelas))
+                df_final = df_unit_itu[df_unit_itu['Kelas'] == kelas_terpilih]
+            else:
+                # Jika tidak ada kelas (Guru/Staff)
+                kelas_terpilih = "-"
+                df_final = df_unit_itu
+                
+            # 3. Pilih Nama sesuai filter di atas
+            list_nama = df_final['Nama Siswa'].dropna().tolist()
+            nama_terpilih = st.selectbox("Pilih Nama", sorted(list_nama))
             
             batin = st.radio("Dominasi Batin (Self-Reported)", ["Konsolasi", "Desolasi"], horizontal=True)
-            refleksi = st.text_area("Teks Refleksi Siswa")
+            refleksi = st.text_area("Teks Refleksi")
             
             if st.button("Simpan & Analisis"):
                 if refleksi:
@@ -186,6 +186,7 @@ elif menu == "Data Input Center":
                             df = pd.read_csv(DB_BATIN)
                             data_baru = pd.DataFrame([{
                                 "Tanggal": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                                "Unit": unit_terpilih,
                                 "Kelas": kelas_terpilih,
                                 "Nama Siswa": nama_terpilih,
                                 "Status Awal": batin,
@@ -220,13 +221,13 @@ elif menu == "Student Tracker":
 # HALAMAN 4: DATABASE MANAGEMENT
 # ==========================================
 elif menu == "Database Management":
-    st.title("Manajemen Database Siswa 🗃️")
-    st.write("Upload Excel/CSV berisi daftar nama siswa se-sekolah di sini supaya otomatis masuk ke sistem.")
+    st.title("Manajemen Database Siswa & Staff 🗃️")
+    st.write("Upload Excel/CSV berisi daftar nama se-sekolah di sini supaya otomatis masuk ke sistem.")
     
     col1, col2 = st.columns([1, 1])
     with col1:
-        st.info("Pastikan file lu punya kolom: **Nama Siswa** dan **Kelas**.")
-        file_master = st.file_uploader("Upload Data Siswa (CSV/Excel)", type=['csv', 'xlsx'])
+        st.info("Pastikan file lu punya kolom: **Nama Siswa**, **Unit**, dan **Kelas**. *(Kosongkan kolom Kelas untuk Guru/Staff)*")
+        file_master = st.file_uploader("Upload Data (CSV/Excel)", type=['csv', 'xlsx'])
         
         if file_master:
             try:
@@ -237,7 +238,7 @@ elif menu == "Database Management":
                 
                 if st.button("Simpan ke Master Database"):
                     df_upload.to_csv(DB_MASTER, index=False)
-                    st.success("✅ Master Data Siswa berhasil diperbarui!")
+                    st.success("✅ Master Data berhasil diperbarui!")
             except Exception as e:
                 st.error(f"Gagal baca file: {e}")
                 
