@@ -1,12 +1,13 @@
 import streamlit as st
+from streamlit_option_menu import option_menu
 import google.generativeai as genai
 import pandas as pd
 import os
 import time
 from datetime import datetime
 
-# 1. SETUP PAGE (Harus paling atas!)
-st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide")
+# 1. SETUP PAGE
+st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide", initial_sidebar_state="expanded")
 
 # 2. SETUP API & RADAR MODEL OTOMATIS
 try:
@@ -23,7 +24,7 @@ try:
 except Exception as e:
     st.error(f"⚠️ Masalah koneksi API: {e}")
 
-# 3. SETUP DATABASE LOKAL (Ada 2 sekarang: Master & Batin)
+# 3. SETUP DATABASE LOKAL
 DB_MASTER = "master_siswa.csv"
 DB_BATIN = "database_batin.csv"
 
@@ -32,57 +33,74 @@ if not os.path.exists(DB_MASTER):
 if not os.path.exists(DB_BATIN):
     pd.DataFrame(columns=["Tanggal", "Kelas", "Nama Siswa", "Status Awal", "Refleksi", "Analisis AI"]).to_csv(DB_BATIN, index=False)
 
-# 4. TEMA & WARNA
+# 4. TEMA & WARNA (Custom CSS untuk Sidebar Biru Dongker & Menu Emas)
 st.markdown("""
     <style>
+    /* Warna Background Utama */
     .main { background-color: #f4f6f9; }
-    h1, h2, h3 { color: #003366; } 
-    .stButton>button { background-color: #003366; color: white; border-radius: 8px; }
+    
+    /* Warna Header */
+    h1, h2, h3 { color: #002244; } 
+    
+    /* Warna Tombol Standar */
+    .stButton>button { background-color: #002244; color: white; border-radius: 8px; border: none; }
+    .stButton>button:hover { background-color: #d4af37; color: #002244; }
+    
+    /* Custom Sidebar Background */
+    [data-testid="stSidebar"] {
+        background-color: #001f3f !important;
+    }
+    
+    /* Sembunyikan header default sidebar biar lebih rapi */
+    [data-testid="stSidebarNav"] {display: none;}
     </style>
     """, unsafe_allow_html=True)
 
-# 5. SIDEBAR NAVIGASI
-st.sidebar.title("🕊️ Berchmans Lite")
-st.sidebar.write("Head of Campus Ministry Portal")
-menu = st.sidebar.radio("Navigasi:", ["1. Master Database", "2. Data Input Center", "3. Student Tracker", "4. AI Dashboard"])
-
-# ==========================================
-# HALAMAN 1: MASTER DATABASE (BARU)
-# ==========================================
-if menu == "1. Master Database":
-    st.title("Manajemen Database Siswa 🗃️")
-    st.write("Upload Excel/CSV berisi daftar nama siswa se-sekolah di sini supaya otomatis masuk ke sistem.")
+# 5. SIDEBAR NAVIGASI (Desain Baru!)
+with st.sidebar:
+    st.markdown('<p style="color:#8ba1b5; font-size:12px; font-weight:700; letter-spacing:1.5px; margin-bottom: 0px; margin-left: 15px;">MAIN MENU</p>', unsafe_allow_html=True)
     
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        st.info("Pastikan file lu punya kolom: **Nama Siswa** dan **Kelas**.")
-        file_master = st.file_uploader("Upload Data Siswa (CSV/Excel)", type=['csv', 'xlsx'])
-        
-        if file_master:
-            try:
-                if file_master.name.endswith('.csv'):
-                    df_upload = pd.read_csv(file_master)
-                else:
-                    df_upload = pd.read_excel(file_master)
-                
-                if st.button("Simpan ke Master Database"):
-                    df_upload.to_csv(DB_MASTER, index=False)
-                    st.success("✅ Master Data Siswa berhasil diperbarui!")
-            except Exception as e:
-                st.error(f"Gagal baca file: {e}")
-                
-    with col2:
-        st.markdown("### Isi Master Data Saat Ini:")
-        df_master = pd.read_csv(DB_MASTER)
-        if not df_master.empty:
-            st.dataframe(df_master, use_container_width=True)
-        else:
-            st.warning("Data Master masih kosong Bro!")
+    menu = option_menu(
+        menu_title=None,
+        options=["AI Dashboard", "Data Input Center", "Student Tracker", "Database Management"],
+        icons=["grid", "server", "people", "hdd-stack"],
+        default_index=1,
+        styles={
+            "container": {"padding": "0!important", "background-color": "transparent"},
+            "icon": {"color": "#e0e0e0", "font-size": "18px"}, 
+            "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "color": "#e0e0e0", "--hover-color": "#003366"},
+            "nav-link-selected": {
+                "background-color": "#dca235",
+                "color": "#001f3f",
+                "font-weight": "bold",
+                "border-radius": "8px"
+            },
+        }
+    )
 
 # ==========================================
-# HALAMAN 2: DATA INPUT CENTER (DI-UPGRADE)
+# HALAMAN 1: AI DASHBOARD
 # ==========================================
-elif menu == "2. Data Input Center":
+if menu == "AI Dashboard":
+    st.title("AI Dashboard 🧠")
+    try:
+        df = pd.read_csv(DB_BATIN)
+        if not df.empty:
+            jumlah_konsolasi = len(df[df['Status Awal'] == 'Konsolasi'])
+            jumlah_desolasi = len(df[df['Status Awal'] == 'Desolasi'])
+            
+            col1, col2 = st.columns(2)
+            col1.metric("Total Konsolasi", jumlah_konsolasi)
+            col2.metric("Total Desolasi", jumlah_desolasi)
+        else:
+            st.info("Belum ada data untuk ditampilkan grafiknya.")
+    except:
+        pass
+
+# ==========================================
+# HALAMAN 2: DATA INPUT CENTER
+# ==========================================
+elif menu == "Data Input Center":
     st.title("Data Input Center 📥")
     st.write("---")
     
@@ -90,7 +108,6 @@ elif menu == "2. Data Input Center":
     
     col1, col2 = st.columns([1, 1])
     
-    # BAGIAN BULK IMPORT (Dihidupkan!)
     with col1:
         st.markdown("### 📊 Bulk Excel Import & AI")
         st.info("Upload Template Refleksi yang udah diisi banyak siswa. AI akan menganalisis semuanya sekaligus!")
@@ -105,7 +122,6 @@ elif menu == "2. Data Input Center":
                 
                 progress_bar = st.progress(0)
                 status_text = st.empty()
-                
                 df_batin = pd.read_csv(DB_BATIN)
                 data_baru_list = []
                 
@@ -117,12 +133,11 @@ elif menu == "2. Data Input Center":
                     
                     status_text.text(f"Sedang menganalisis batin {nama} ({kelas})...")
                     
-                    if str(refleksi).strip():
-                        prompt = f"Sebagai pendelor pastoral, analisis refleksi ini. Nama: {nama}. Refleksi: '{refleksi}'. Berikan 1 kata kunci masalah/kebahagiaan, dan 1 kalimat saran pendampingan (Cura Personalis)."
+                    if str(refleksi).strip() and str(refleksi).lower() != 'nan':
+                        prompt = f"Sebagai pendelor pastoral, analisis refleksi ini. Nama: {nama}. Refleksi: '{refleksi}'. Berikan 1 kata kunci masalah/kebahagiaan, dan 1 kalimat saran pendampingan."
                         try:
                             response = model.generate_content(prompt)
                             hasil_ai = response.text
-                            # Kasih jeda dikit biar gak diblokir server Google karena kecepatan
                             time.sleep(2) 
                         except Exception as e:
                             hasil_ai = "Gagal dianalisis AI"
@@ -137,7 +152,6 @@ elif menu == "2. Data Input Center":
                         "Refleksi": refleksi,
                         "Analisis AI": hasil_ai
                     })
-                    
                     progress_bar.progress((i + 1) / len(df_bulk))
                 
                 df_baru = pd.DataFrame(data_baru_list)
@@ -146,17 +160,14 @@ elif menu == "2. Data Input Center":
                 status_text.text("✅ Analisis massal selesai!")
                 st.success(f"{len(df_bulk)} data refleksi berhasil dianalisis dan masuk database!")
 
-    # BAGIAN MANUAL ENTRY DENGAN DROPDOWN OTOMATIS
     with col2:
         st.markdown("### ✍️ Manual Entry & AI Analysis")
         if df_master.empty:
-            st.warning("⚠️ Upload Data Master Siswa dulu di menu navigasi nomor 1 biar bisa pilih nama otomatis!")
+            st.warning("⚠️ Upload Data Master Siswa dulu di menu 'Database Management' biar bisa pilih nama otomatis!")
         else:
-            # Dropdown Kelas otomatis ambil dari Master
             list_kelas = df_master['Kelas'].dropna().unique().tolist()
             kelas_terpilih = st.selectbox("Pilih Kelas", sorted(list_kelas))
             
-            # Dropdown Nama otomatis menyesuaikan Kelas yang dipilih
             df_kelas_itu = df_master[df_master['Kelas'] == kelas_terpilih]
             list_nama = df_kelas_itu['Nama Siswa'].dropna().tolist()
             nama_terpilih = st.selectbox("Pilih Siswa", list_nama)
@@ -194,7 +205,7 @@ elif menu == "2. Data Input Center":
 # ==========================================
 # HALAMAN 3: STUDENT TRACKER
 # ==========================================
-elif menu == "3. Student Tracker":
+elif menu == "Student Tracker":
     st.title("Student Insights Directory 🔍")
     try:
         df = pd.read_csv(DB_BATIN)
@@ -206,20 +217,34 @@ elif menu == "3. Student Tracker":
         st.error("Database belum terbentuk.")
 
 # ==========================================
-# HALAMAN 4: AI DASHBOARD
+# HALAMAN 4: DATABASE MANAGEMENT
 # ==========================================
-elif menu == "4. AI Dashboard":
-    st.title("AI Dashboard 🧠")
-    try:
-        df = pd.read_csv(DB_BATIN)
-        if not df.empty:
-            jumlah_konsolasi = len(df[df['Status Awal'] == 'Konsolasi'])
-            jumlah_desolasi = len(df[df['Status Awal'] == 'Desolasi'])
-            
-            col1, col2 = st.columns(2)
-            col1.metric("Total Konsolasi", jumlah_konsolasi)
-            col2.metric("Total Desolasi", jumlah_desolasi)
+elif menu == "Database Management":
+    st.title("Manajemen Database Siswa 🗃️")
+    st.write("Upload Excel/CSV berisi daftar nama siswa se-sekolah di sini supaya otomatis masuk ke sistem.")
+    
+    col1, col2 = st.columns([1, 1])
+    with col1:
+        st.info("Pastikan file lu punya kolom: **Nama Siswa** dan **Kelas**.")
+        file_master = st.file_uploader("Upload Data Siswa (CSV/Excel)", type=['csv', 'xlsx'])
+        
+        if file_master:
+            try:
+                if file_master.name.endswith('.csv'):
+                    df_upload = pd.read_csv(file_master)
+                else:
+                    df_upload = pd.read_excel(file_master)
+                
+                if st.button("Simpan ke Master Database"):
+                    df_upload.to_csv(DB_MASTER, index=False)
+                    st.success("✅ Master Data Siswa berhasil diperbarui!")
+            except Exception as e:
+                st.error(f"Gagal baca file: {e}")
+                
+    with col2:
+        st.markdown("### Isi Master Data Saat Ini:")
+        df_master = pd.read_csv(DB_MASTER)
+        if not df_master.empty:
+            st.dataframe(df_master, use_container_width=True)
         else:
-            st.info("Belum ada data untuk ditampilkan grafiknya.")
-    except:
-        pass
+            st.warning("Data Master masih kosong Bro!")
