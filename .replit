@@ -43,3 +43,8 @@ timeoutMs = 20000
 [[ports]]
 localPort = 5000
 externalPort = 80
+
+[userenv]
+
+[userenv.shared]
+GEMINI_API_KEY = "AIzaSyBxxiAPEv5YSjQmVQ39gYtuutr9uLnccOs"
