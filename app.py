@@ -6,6 +6,8 @@ import plotly.express as px
 import os
 import time
 from datetime import datetime
+from docx import Document
+import io
 
 # 1. SETUP PAGE
 st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide", initial_sidebar_state="expanded")
@@ -275,6 +277,28 @@ elif menu == "Student Insights":
                                 response = model.generate_content(prompt)
                                 st.success("Laporan analitik selesai dibuat.")
                                 st.info(response.text)
+
+                                # --- KODE BARU UNTUK DOWNLOAD WORD ---
+                                doc = Document()
+                                doc.add_heading('LAPORAN ANALITIK BINA IMAN & PSIKOLOGIS', level=1)
+                                doc.add_paragraph(f"Target Analisis: {target_analisis}")
+                                doc.add_paragraph(f"Tanggal Cetak: {datetime.now().strftime('%d-%m-%Y %H:%M')}")
+                                
+                                teks_bersih = response.text.replace('**', '')
+                                doc.add_paragraph(teks_bersih)
+                                
+                                bio = io.BytesIO()
+                                doc.save(bio)
+                                bio.seek(0)
+                                
+                                st.download_button(
+                                    label="📥 Download Laporan (Word)",
+                                    data=bio,
+                                    file_name=f"Laporan_Analitik_{target_analisis.replace(' ', '_')}.docx",
+                                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                                )
+                                # --------------------------------
+
                             except Exception as e:
                                 st.error(f"Gagal memproses sistem: {e}")
             
