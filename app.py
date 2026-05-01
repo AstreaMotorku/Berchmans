@@ -318,11 +318,13 @@ elif menu == "Database Management":
     st.title("Manajemen Data Induk 🗃️")
     st.write("Pusat pengelolaan direktori civitas akademika. Data yang diunggah akan terintegrasi secara otomatis dengan seluruh modul.")
     
-    col1, col2 = st.columns([1, 1])
-    with col1:
+    # --- BAGIAN 1: UPLOAD DENGAN KOLOM ---
+    col_up1, col_up2 = st.columns([1, 1])
+    with col_up1:
         st.info("Pastikan format kolom Excel/CSV memuat: **Nama Siswa**, **Unit**, dan **Kelas**. *(Kosongkan kolom Kelas untuk Guru/Staff)*")
         file_master = st.file_uploader("Unggah Dokumen (CSV/Excel)", type=['csv', 'xlsx'])
         
+    with col_up2:
         if file_master:
             try:
                 if file_master.name.endswith('.csv'):
@@ -334,7 +336,7 @@ elif menu == "Database Management":
                 col_btn1, col_btn2 = st.columns(2)
                 
                 with col_btn1:
-                    if st.button("➕ Tambah ke Data Lama"):
+                    if st.button("➕ Tambah ke Data Lama", use_container_width=True):
                         df_lama = pd.read_csv(DB_MASTER)
                         df_gabung = pd.concat([df_lama, df_upload], ignore_index=True)
                         df_gabung.drop_duplicates(subset=['Nama Siswa', 'Unit', 'Kelas'], keep='last', inplace=True)
@@ -343,50 +345,87 @@ elif menu == "Database Management":
                         st.success("✅ Data induk berhasil diperbarui!")
                 
                 with col_btn2:
-                    if st.button("🔄 Timpa Semua (Reset)"):
+                    if st.button("🔄 Timpa Semua (Reset)", use_container_width=True):
                         df_upload = df_upload.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
                         df_upload.to_csv(DB_MASTER, index=False)
-                        st.success("✅ Seluruh data lama telah diganti dengan dokumen baru!")
+                        st.success("✅ Seluruh data diganti dokumen baru!")
                         
             except Exception as e:
                 st.error(f"Gagal membaca dokumen: {e}")
+
+    st.write("---")
+    
+    # --- BAGIAN 2: UI DIREKTORI FILTER DINAMIS ---
+    st.markdown("### 🗂️ Direktori Master Data")
+    try:
+        df_master = pd.read_csv(DB_MASTER)
+        if not df_master.empty:
+            
+            # BARIS 1: MENU UNIT & SEARCH BAR
+            col_nav, col_search = st.columns([2.5, 1])
+            with col_nav:
+                list_unit = ["SEMUA UNIT"] + sorted([str(u).upper() for u in df_master['Unit'].dropna().unique().tolist()])
+                pilih_unit = option_menu(
+                    menu_title=None,
+                    options=list_unit,
+                    orientation="horizontal",
+                    styles={
+                        "container": {"padding": "5px", "background-color": "#ffffff", "border": "1px solid #e0e0e0", "border-radius": "10px", "margin":"0px"},
+                        "nav-link": {"font-size": "13px", "font-weight": "bold", "color": "#8ba1b5", "margin":"0px", "padding": "10px"},
+                        "nav-link-selected": {"background-color": "#002244", "color": "#ffffff", "border-radius": "8px"},
+                    },
+                    key="menu_unit_db"
+                )
                 
-    with col2:
-        st.markdown("### Direktori Master Data:")
-        try:
-            df_master = pd.read_csv(DB_MASTER)
-            if not df_master.empty:
-                # Filter Bertingkat untuk Tampilan UI
-                list_unit = ["Semua Unit"] + sorted(df_master['Unit'].dropna().unique().tolist())
-                pilih_unit = st.selectbox("📂 Pilih Unit", list_unit)
+            with col_search:
+                st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True) 
+                search_query = st.text_input("Pencarian", label_visibility="collapsed", placeholder="🔍 Search student name...")
+
+            # Logika Filter Unit
+            if pilih_unit == "SEMUA UNIT":
+                df_tampil = df_master
+            else:
+                df_tampil = df_master[df_master['Unit'].str.upper() == pilih_unit]
                 
-                if pilih_unit == "Semua Unit":
-                    df_tampil = df_master
-                else:
-                    df_unit = df_master[df_master['Unit'] == pilih_unit]
-                    list_kelas = [k for k in df_unit['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
-                    
-                    if list_kelas:
-                        opsi_kelas = ["Semua Kelas"] + sorted(list_kelas)
-                        pilih_kelas = st.selectbox("🏫 Pilih Kelas", opsi_kelas)
-                        
-                        if pilih_kelas == "Semua Kelas":
-                            df_tampil = df_unit
-                        else:
-                            df_tampil = df_unit[df_unit['Kelas'] == pilih_kelas]
-                    else:
-                        df_tampil = df_unit # Khusus Guru/Staff yang tidak memiliki kelas
-                        
-                # Menampilkan Data yang Sudah Difilter
-                df_tampil = df_tampil.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
-                st.markdown(f"**Menampilkan {len(df_tampil)} data:**")
-                st.dataframe(df_tampil, use_container_width=True)
-                
-                st.write("---")
-                if st.button("🗑️ Kosongkan Direktori"):
+            # BARIS 2: MENU KELAS (Otomatis sembunyi jika Guru/Staff)
+            list_kelas = [k for k in df_tampil['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
+            if list_kelas and pilih_unit != "SEMUA UNIT":
+                col_teks, col_pills = st.columns([1, 6])
+                with col_teks:
+                    st.markdown("<p style='font-size:13px; font-weight:800; color:#8ba1b5; margin-top:20px; text-align:right; letter-spacing: 1px;'>FILTER KELAS:</p>", unsafe_allow_html=True)
+                with col_pills:
+                    opsi_kelas = ["Semua Kelas"] + sorted(list_kelas)
+                    pilih_kelas = option_menu(
+                        menu_title=None,
+                        options=opsi_kelas,
+                        orientation="horizontal",
+                        styles={
+                            "container": {"padding": "0!important", "background-color": "transparent", "margin-top":"10px"},
+                            "nav-link": {"font-size": "13px", "color": "#002244", "background-color": "#ffffff", "border": "1px solid #e0e0e0", "border-radius": "20px", "margin": "0 5px", "padding": "5px 15px"},
+                            "nav-link-selected": {"background-color": "#dca235", "color": "#002244", "font-weight": "bold", "border": "none"},
+                        },
+                        key="menu_kelas_db"
+                    )
+                    if pilih_kelas != "Semua Kelas":
+                        df_tampil = df_tampil[df_tampil['Kelas'] == pilih_kelas]
+
+            # Logika Search
+            if search_query:
+                df_tampil = df_tampil[df_tampil['Nama Siswa'].str.contains(search_query, case=False, na=False)]
+
+            # TAMPILKAN TABEL
+            st.markdown("<br>", unsafe_allow_html=True)
+            df_tampil = df_tampil.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
+            st.dataframe(df_tampil, use_container_width=True)
+            
+            # TOMBOL DELETE
+            st.write("---")
+            col_del1, col_del2, col_del3 = st.columns([1,2,1])
+            with col_del2:
+                if st.button("🗑️ Kosongkan Seluruh Direktori Master", use_container_width=True):
                     pd.DataFrame(columns=["Nama Siswa", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
                     st.success("Direktori berhasil dikosongkan. Muat ulang (refresh) halaman.")
-            else:
-                st.warning("Direktori data masih kosong.")
-        except Exception as e:
-             st.warning("Direktori data masih kosong.")
+        else:
+            st.warning("Direktori data masih kosong.")
+    except Exception as e:
+         st.warning("Direktori data masih kosong.")
