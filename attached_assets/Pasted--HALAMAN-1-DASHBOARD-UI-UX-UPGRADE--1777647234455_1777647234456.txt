@@ -1,0 +1,162 @@
+# ==========================================
+# HALAMAN 1: DASHBOARD (UI/UX UPGRADE)
+# ==========================================
+if menu == "Dashboard":
+    # Custom CSS khusus untuk Dashboard
+    st.markdown("""
+        <style>
+        .dash-title { color: #002244; font-size: 24px; font-weight: 800; margin-bottom: 0px; padding-bottom: 0px; }
+        .dash-subtitle { color: #8ba1b5; font-size: 14px; margin-top: 0px; padding-top: 0px; margin-bottom: 20px;}
+        
+        /* KPI Cards */
+        .kpi-card { background-color: #ffffff; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); height: 100%; }
+        .kpi-card-blue { border: 2px solid #002244; }
+        .kpi-card-yellow { border: 2px solid #f39c12; }
+        .kpi-card-cyan { border: 2px solid #00a8ff; }
+        
+        .kpi-label { font-size: 12px; font-weight: 700; color: #8ba1b5; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+        .kpi-val { font-size: 28px; font-weight: 800; color: #002244; margin-bottom: 5px; }
+        .kpi-val-yellow { color: #d35400; }
+        .kpi-val-cyan { color: #0097e6; }
+        .kpi-desc { font-size: 13px; color: #8ba1b5; }
+        
+        /* Section Containers */
+        .section-container { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+        .section-title { color: #002244; font-size: 18px; font-weight: 800; margin-bottom: 5px; }
+        .section-subtitle { color: #8ba1b5; font-size: 13px; margin-bottom: 20px; }
+        
+        /* Priority List */
+        .priority-item { border-bottom: 1px solid #f0f2f6; padding-bottom: 10px; margin-bottom: 10px; }
+        .priority-item:last-child { border-bottom: none; }
+        .p-name { font-weight: 700; color: #002244; font-size: 15px; margin-bottom: 2px; }
+        .p-class { font-size: 12px; color: #8ba1b5; }
+        .badge-red { background-color: #ffeaa7; color: #d63031; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; float: right; background: #ff767533; }
+        .p-status { font-size: 12px; color: #d63031; font-weight: 600; margin-top: 5px;}
+        .p-time { font-size: 11px; color: #b2bec3; float: right; font-style: italic; margin-top: 5px;}
+        
+        .view-all-btn { display: block; width: 100%; text-align: center; padding: 10px; border: 1px solid #e0e0e0; border-radius: 8px; color: #002244; font-weight: 600; font-size: 13px; text-decoration: none; margin-top: 15px; }
+        .view-all-btn:hover { background-color: #f4f6f9; }
+        </style>
+    """, unsafe_allow_html=True)
+
+    # --- HEADER ---
+    col_header1, col_header2 = st.columns([2.5, 1])
+    with col_header1:
+        st.markdown('<p class="dash-title">School Spiritual Overview</p>', unsafe_allow_html=True)
+        st.markdown('<p class="dash-title" style="color:#dca235; font-size:24px; margin-top:-5px;">Berchmans Spirit Center</p>', unsafe_allow_html=True)
+        st.markdown('<p class="dash-subtitle">AI-Powered Consolation & Desolation Analytics</p>', unsafe_allow_html=True)
+    with col_header2:
+        st.markdown("<div style='margin-top: 15px;'></div>", unsafe_allow_html=True)
+        st.text_input("Search", placeholder="🔍 Search student or class...", label_visibility="collapsed")
+
+    try:
+        df = pd.read_csv(DB_BATIN)
+        if not df.empty:
+            # Kalkulasi Data untuk KPI
+            total_data = len(df)
+            jumlah_konsolasi = len(df[df['Status Awal'] == 'Konsolasi'])
+            persen_konsolasi = int((jumlah_konsolasi / total_data) * 100) if total_data > 0 else 0
+            
+            # Mencari Unit dengan Desolasi Terbanyak
+            df_desolasi = df[df['Status Awal'] == 'Desolasi']
+            unit_alert = "Aman"
+            pesan_alert = "Tidak ada tren negatif signifikan"
+            if not df_desolasi.empty:
+                unit_terbanyak = df_desolasi['Unit'].mode()[0]
+                unit_alert = f"{unit_terbanyak}: Desolation Tinggi"
+                pesan_alert = f"Tren terdeteksi di unit {unit_terbanyak}"
+
+            # --- ROW 1: KPI CARDS ---
+            col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+            
+            with col_kpi1:
+                st.markdown(f"""
+                <div class="kpi-card kpi-card-blue">
+                    <div class="kpi-label">SCHOOL-WIDE MOOD 📈</div>
+                    <div class="kpi-val">{persen_konsolasi}% Konsolasi</div>
+                    <div class="kpi-desc">Berdasarkan {total_data} total laporan batin</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_kpi2:
+                st.markdown(f"""
+                <div class="kpi-card kpi-card-yellow">
+                    <div class="kpi-label">UNIT ALERT ⚠️</div>
+                    <div class="kpi-val kpi-val-yellow">{unit_alert}</div>
+                    <div class="kpi-desc">{pesan_alert}</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+            with col_kpi3:
+                # Placeholder untuk fitur AI masa depan sesuai desain
+                st.markdown("""
+                <div class="kpi-card kpi-card-cyan">
+                    <div class="kpi-label">AI PATTERN DETECTED 🧠</div>
+                    <div class="kpi-val kpi-val-cyan">Kecemasan Ujian</div>
+                    <div class="kpi-desc">Kapasitas Konseling penuh minggu ini</div>
+                </div>
+                """, unsafe_allow_html=True)
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # --- ROW 2: CHART & PRIORITY LIST ---
+            col_mid1, col_mid2 = st.columns([2.5, 1.2])
+            
+            with col_mid1:
+                st.markdown("""
+                <div class="section-container" style="height: 100%;">
+                    <div class="section-title">Trend Batin Per Unit</div>
+                    <div class="section-subtitle">Perbandingan Tingkat Konsolasi vs Desolasi</div>
+                </div>
+                """, unsafe_allow_html=True)
+                
+                # Chart Horizontal menggunakan Plotly
+                df_unit = df.groupby(['Unit', 'Status Awal']).size().reset_index(name='Jumlah')
+                fig_bar = px.bar(
+                    df_unit, 
+                    y='Unit', 
+                    x='Jumlah', 
+                    color='Status Awal', 
+                    orientation='h', # Bikin jadi horizontal chart
+                    barmode='group',
+                    color_discrete_map={'Konsolasi':'#002244', 'Desolasi':'#e2e8f0'} # Warna dark blue dan grey pastel
+                )
+                fig_bar.update_layout(
+                    margin=dict(t=10, b=0, l=0, r=0),
+                    plot_bgcolor='white',
+                    yaxis_title=None,
+                    xaxis_title=None,
+                    legend_title=None,
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+
+            with col_mid2:
+                st.markdown("""
+                <div class="section-container">
+                    <div class="section-title">Priority Cura Personalis</div>
+                    <div class="section-subtitle">High Risk Intervention List</div>
+                    
+                    <div class="priority-item">
+                        <span class="badge-red">INTERVENTION NEEDED</span>
+                        <div class="p-name">Siswa Sampling 1</div>
+                        <div class="p-class">Data Simulasi AI</div>
+                        <div><span class="p-status">3x Berturut-turut</span> <span class="p-time">Diperbarui hari ini</span></div>
+                    </div>
+                    
+                    <div class="priority-item">
+                        <span class="badge-red">INTERVENTION NEEDED</span>
+                        <div class="p-name">Siswa Sampling 2</div>
+                        <div class="p-class">Data Simulasi AI</div>
+                        <div><span class="p-status">2x Berturut-turut</span> <span class="p-time">Diperbarui kemaren</span></div>
+                    </div>
+                    
+                    <a href="#" class="view-all-btn">View All Observations ></a>
+                </div>
+                """, unsafe_allow_html=True)
+
+        else:
+            st.info("Belum ada data refleksi yang masuk dalam sistem.")
+            
+    except Exception as e:
+        st.error(f"Gagal memuat Dashboard: {e}")
