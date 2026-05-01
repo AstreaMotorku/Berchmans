@@ -1,0 +1,37 @@
+try:
+            df_master = pd.read_csv(DB_MASTER)
+            if not df_master.empty:
+                # Filter Bertingkat untuk Tampilan UI
+                list_unit = ["Semua Unit"] + sorted(df_master['Unit'].dropna().unique().tolist())
+                pilih_unit = st.selectbox("📂 Pilih Unit", list_unit)
+                
+                if pilih_unit == "Semua Unit":
+                    df_tampil = df_master
+                else:
+                    df_unit = df_master[df_master['Unit'] == pilih_unit]
+                    list_kelas = [k for k in df_unit['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
+                    
+                    if list_kelas:
+                        opsi_kelas = ["Semua Kelas"] + sorted(list_kelas)
+                        pilih_kelas = st.selectbox("🏫 Pilih Kelas", opsi_kelas)
+                        
+                        if pilih_kelas == "Semua Kelas":
+                            df_tampil = df_unit
+                        else:
+                            df_tampil = df_unit[df_unit['Kelas'] == pilih_kelas]
+                    else:
+                        df_tampil = df_unit # Khusus Guru/Staff yang tidak memiliki kelas
+                        
+                # Menampilkan Data yang Sudah Difilter
+                df_tampil = df_tampil.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
+                st.markdown(f"**Menampilkan {len(df_tampil)} data:**")
+                st.dataframe(df_tampil, use_container_width=True)
+                
+                st.write("---")
+                if st.button("🗑️ Kosongkan Direktori"):
+                    pd.DataFrame(columns=["Nama Siswa", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
+                    st.success("Direktori berhasil dikosongkan. Muat ulang (refresh) halaman.")
+            else:
+                st.warning("Direktori data masih kosong.")
+        except Exception as e:
+             st.warning("Direktori data masih kosong.")
