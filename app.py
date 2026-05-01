@@ -69,14 +69,12 @@ with st.sidebar:
 # HALAMAN 1: DASHBOARD (UI/UX UPGRADE)
 # ==========================================
 if menu == "Dashboard":
-    # Custom CSS khusus untuk Dashboard
     st.markdown("""
 <style>
 .dash-title { color: #002244; font-size: 24px; font-weight: 800; margin-bottom: 0px; padding-bottom: 0px; }
 .dash-subtitle { color: #8ba1b5; font-size: 14px; margin-top: 0px; padding-top: 0px; margin-bottom: 20px;}
 
-/* KPI Cards */
-.kpi-card { background-color: #ffffff; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); height: 160px; display: flex; flex-direction: column; justify-content: center;}
+.kpi-card { background-color: #ffffff; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); height: 160px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 5px;}
 .kpi-card-blue { border: 2px solid #002244; }
 .kpi-card-yellow { border: 2px solid #f39c12; }
 .kpi-card-cyan { border: 2px solid #00a8ff; }
@@ -87,12 +85,10 @@ if menu == "Dashboard":
 .kpi-val-cyan { color: #0097e6; }
 .kpi-desc { font-size: 13px; color: #8ba1b5; }
 
-/* Section Containers */
 .section-container { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
 .section-title { color: #002244; font-size: 18px; font-weight: 800; margin-bottom: 5px; }
 .section-subtitle { color: #8ba1b5; font-size: 13px; margin-bottom: 20px; }
 
-/* Priority List */
 .priority-item { border-bottom: 1px solid #f0f2f6; padding-bottom: 10px; margin-bottom: 10px; }
 .priority-item:last-child { border-bottom: none; }
 .p-name { font-weight: 700; color: #002244; font-size: 15px; margin-bottom: 2px; }
@@ -100,7 +96,6 @@ if menu == "Dashboard":
 .badge-red { background-color: #ff767533; color: #d63031; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; float: right; }
 .p-status { font-size: 12px; color: #d63031; font-weight: 600; margin-top: 5px;}
 .p-time { font-size: 11px; color: #b2bec3; float: right; font-style: italic; margin-top: 5px;}
-
 .view-all-btn { display: block; width: 100%; text-align: center; padding: 10px; border: 1px solid #e0e0e0; border-radius: 8px; color: #002244; font-weight: 600; font-size: 13px; text-decoration: none; margin-top: 15px; }
 .view-all-btn:hover { background-color: #f4f6f9; }
 </style>
@@ -110,10 +105,10 @@ if menu == "Dashboard":
     col_header1, col_header2 = st.columns([2.5, 1])
     with col_header1:
         st.markdown('<p class="dash-title" style="color:#dca235; font-size:28px;">Berchmans Spirit Center</p>', unsafe_allow_html=True)
-        st.markdown('<p class="dash-subtitle">AI-Powered Consolation & Desolation Analytics</p>', unsafe_allow_html=True)
+        st.markdown('<p class="dash-subtitle">Analitik Pergerakan Batin & Evaluasi Pastoral</p>', unsafe_allow_html=True)
     with col_header2:
         st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
-        st.text_input("Search", placeholder="🔍 Search student or class...", label_visibility="collapsed")
+        st.text_input("Search", placeholder="🔍 Cari siswa...", label_visibility="collapsed")
 
     try:
         df = pd.read_csv(DB_BATIN)
@@ -123,14 +118,14 @@ if menu == "Dashboard":
             persen_konsolasi = int((jumlah_konsolasi / total_data) * 100) if total_data > 0 else 0
             
             df_desolasi = df[df['Status Awal'] == 'Desolasi']
-            unit_alert = "Aman"
+            unit_alert = "Semua Unit Stabil"
             pesan_alert = "Tidak ada tren negatif signifikan"
             if not df_desolasi.empty:
                 unit_terbanyak = df_desolasi['Unit'].mode()[0]
                 unit_alert = f"{unit_terbanyak}: Desolation Tinggi"
-                pesan_alert = f"Tren terdeteksi di unit {unit_terbanyak}"
+                pesan_alert = f"Tren terdeteksi paling tinggi di {unit_terbanyak}"
 
-            # --- ROW 1: KPI CARDS ---
+            # --- ROW 1: KPI CARDS DENGAN EXPANDER ---
             col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
             
             with col_kpi1:
@@ -141,6 +136,13 @@ if menu == "Dashboard":
     <div class="kpi-desc">Berdasarkan {total_data} total laporan batin</div>
 </div>
                 """, unsafe_allow_html=True)
+                with st.expander("📊 Lihat Detail per Unit"):
+                    df_mood = df.groupby(['Unit', 'Status Awal']).size().unstack(fill_value=0).reset_index()
+                    if 'Konsolasi' not in df_mood.columns: df_mood['Konsolasi'] = 0
+                    if 'Desolasi' not in df_mood.columns: df_mood['Desolasi'] = 0
+                    df_mood['Total'] = df_mood['Konsolasi'] + df_mood['Desolasi']
+                    df_mood['% Konsolasi'] = (df_mood['Konsolasi'] / df_mood['Total'] * 100).round(1)
+                    st.dataframe(df_mood[['Unit', '% Konsolasi', 'Total']], hide_index=True, use_container_width=True)
                 
             with col_kpi2:
                 st.markdown(f"""
@@ -150,15 +152,41 @@ if menu == "Dashboard":
     <div class="kpi-desc">{pesan_alert}</div>
 </div>
                 """, unsafe_allow_html=True)
+                with st.expander("⚠️ Pantau Unit Lainnya"):
+                    if not df_desolasi.empty:
+                        df_desolasi_counts = df_desolasi['Unit'].value_counts().reset_index()
+                        df_desolasi_counts.columns = ['Unit', 'Jumlah Desolasi']
+                        st.dataframe(df_desolasi_counts, hide_index=True, use_container_width=True)
+                    else:
+                        st.success("Tidak ada data desolasi saat ini.")
                 
             with col_kpi3:
                 st.markdown("""
 <div class="kpi-card kpi-card-cyan">
-    <div class="kpi-label">AI PATTERN DETECTED 🧠</div>
-    <div class="kpi-val kpi-val-cyan">Kecemasan Ujian</div>
-    <div class="kpi-desc">Kapasitas Konseling penuh minggu ini</div>
+    <div class="kpi-label">PATTERN DETECTED 🧠</div>
+    <div class="kpi-val kpi-val-cyan">Perlu Pemindaian</div>
+    <div class="kpi-desc">Klik dropdown di bawah untuk memindai pola batin.</div>
 </div>
                 """, unsafe_allow_html=True)
+                with st.expander("🔍 Pindai Pola Batin"):
+                    opsi_pola = ["Seluruh Sekolah"] + sorted(df['Unit'].unique().tolist())
+                    target_pola = st.selectbox("Pilih Target Pindaian:", opsi_pola, label_visibility="collapsed")
+                    
+                    if st.button("Jalankan Pemindaian Pola"):
+                        with st.spinner("Memproses data teks..."):
+                            df_target = df if target_pola == "Seluruh Sekolah" else df[df['Unit'] == target_pola]
+                            teks_refleksi = " ".join(df_target.tail(30)['Refleksi'].dropna().astype(str).tolist())
+                            
+                            if teks_refleksi.strip():
+                                prompt_pola = f"Sebutkan 1 frasa singkat (maksimal 4 kata) yang menjadi tema utama atau masalah paling sering muncul dari kumpulan curhatan ini: '{teks_refleksi}'. Lalu berikan 2 kalimat penjelasan singkat."
+                                try:
+                                    response = model.generate_content(prompt_pola)
+                                    st.success("Pemindaian Selesai!")
+                                    st.info(response.text)
+                                except Exception as e:
+                                    st.error("Gagal terhubung ke AI.")
+                            else:
+                                st.warning("Data refleksi tidak cukup untuk dipindai.")
             
             st.markdown("<br>", unsafe_allow_html=True)
             
@@ -169,7 +197,7 @@ if menu == "Dashboard":
                 st.markdown("""
 <div style="background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
     <div style="color: #002244; font-size: 18px; font-weight: 800; margin-bottom: 5px;">Trend Batin Per Unit</div>
-    <div style="color: #8ba1b5; font-size: 13px;">Perbandingan Tingkat Konsolasi vs Desolasi</div>
+    <div style="color: #8ba1b5; font-size: 13px;">Perbandingan Tingkat Konsolasi vs Desolasi (Data Real-Time)</div>
 </div>
                 """, unsafe_allow_html=True)
                 
@@ -196,24 +224,28 @@ if menu == "Dashboard":
 
             with col_mid2:
                 st.markdown("""
-<div class="section-container">
+<div class="section-container" style="padding-bottom: 5px;">
     <div class="section-title">Priority Cura Personalis</div>
     <div class="section-subtitle">High Risk Intervention List</div>
-    <div class="priority-item">
-        <span class="badge-red">INTERVENTION NEEDED</span>
-        <div class="p-name">Siswa Sampling 1</div>
-        <div class="p-class">Data Simulasi AI</div>
-        <div><span class="p-status">3x Berturut-turut</span> <span class="p-time">Diperbarui hari ini</span></div>
-    </div>
-    <div class="priority-item">
-        <span class="badge-red">INTERVENTION NEEDED</span>
-        <div class="p-name">Siswa Sampling 2</div>
-        <div class="p-class">Data Simulasi AI</div>
-        <div><span class="p-status">2x Berturut-turut</span> <span class="p-time">Diperbarui kemaren</span></div>
-    </div>
-    <a href="#" class="view-all-btn">View All Observations ></a>
 </div>
                 """, unsafe_allow_html=True)
+                
+                df_desolasi_terakhir = df[df['Status Awal'] == 'Desolasi'].tail(3).iloc[::-1]
+                
+                if not df_desolasi_terakhir.empty:
+                    for idx, row in df_desolasi_terakhir.iterrows():
+                        st.markdown(f"""
+                        <div class="priority-item">
+                            <span class="badge-red">PERLU ATENSI</span>
+                            <div class="p-name">{row['Nama Siswa']}</div>
+                            <div class="p-class">{row['Unit']} - {row['Kelas']}</div>
+                            <div><span class="p-status">Desolasi</span> <span class="p-time">{row['Tanggal']}</span></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("Tidak ada siswa dalam radar risiko tinggi saat ini.")
+                    
+                st.markdown('<a href="#" class="view-all-btn">Lihat Semua di Menu Insight ></a>', unsafe_allow_html=True)
 
         else:
             st.info("Belum ada data refleksi yang masuk dalam sistem.")

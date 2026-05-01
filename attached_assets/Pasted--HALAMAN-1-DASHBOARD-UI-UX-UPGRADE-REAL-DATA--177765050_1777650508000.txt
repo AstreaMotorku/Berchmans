@@ -1,0 +1,190 @@
+# ==========================================
+# HALAMAN 1: DASHBOARD (UI/UX UPGRADE & REAL DATA)
+# ==========================================
+if menu == "Dashboard":
+    st.markdown("""
+<style>
+.dash-title { color: #002244; font-size: 24px; font-weight: 800; margin-bottom: 0px; padding-bottom: 0px; }
+.dash-subtitle { color: #8ba1b5; font-size: 14px; margin-top: 0px; padding-top: 0px; margin-bottom: 20px;}
+
+.kpi-card { background-color: #ffffff; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); height: 160px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 5px;}
+.kpi-card-blue { border: 2px solid #002244; }
+.kpi-card-yellow { border: 2px solid #f39c12; }
+.kpi-card-cyan { border: 2px solid #00a8ff; }
+
+.kpi-label { font-size: 12px; font-weight: 700; color: #8ba1b5; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+.kpi-val { font-size: 24px; font-weight: 800; color: #002244; margin-bottom: 5px; line-height: 1.2;}
+.kpi-val-yellow { color: #d35400; }
+.kpi-val-cyan { color: #0097e6; }
+.kpi-desc { font-size: 13px; color: #8ba1b5; }
+
+.section-container { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
+.section-title { color: #002244; font-size: 18px; font-weight: 800; margin-bottom: 5px; }
+.section-subtitle { color: #8ba1b5; font-size: 13px; margin-bottom: 20px; }
+
+.priority-item { border-bottom: 1px solid #f0f2f6; padding-bottom: 10px; margin-bottom: 10px; }
+.priority-item:last-child { border-bottom: none; }
+.p-name { font-weight: 700; color: #002244; font-size: 15px; margin-bottom: 2px; }
+.p-class { font-size: 12px; color: #8ba1b5; }
+.badge-red { background-color: #ff767533; color: #d63031; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; float: right; }
+.p-status { font-size: 12px; color: #d63031; font-weight: 600; margin-top: 5px;}
+.p-time { font-size: 11px; color: #b2bec3; float: right; font-style: italic; margin-top: 5px;}
+.view-all-btn { display: block; width: 100%; text-align: center; padding: 10px; border: 1px solid #e0e0e0; border-radius: 8px; color: #002244; font-weight: 600; font-size: 13px; text-decoration: none; margin-top: 15px; }
+.view-all-btn:hover { background-color: #f4f6f9; }
+</style>
+    """, unsafe_allow_html=True)
+
+    # --- HEADER ---
+    col_header1, col_header2 = st.columns([2.5, 1])
+    with col_header1:
+        st.markdown('<p class="dash-title" style="color:#dca235; font-size:28px;">Berchmans Spirit Center</p>', unsafe_allow_html=True)
+        st.markdown('<p class="dash-subtitle">Analitik Pergerakan Batin & Evaluasi Pastoral</p>', unsafe_allow_html=True)
+    with col_header2:
+        st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
+        st.text_input("Search", placeholder="🔍 Cari siswa...", label_visibility="collapsed")
+
+    try:
+        df = pd.read_csv(DB_BATIN)
+        if not df.empty:
+            total_data = len(df)
+            jumlah_konsolasi = len(df[df['Status Awal'] == 'Konsolasi'])
+            persen_konsolasi = int((jumlah_konsolasi / total_data) * 100) if total_data > 0 else 0
+            
+            df_desolasi = df[df['Status Awal'] == 'Desolasi']
+            unit_alert = "Semua Unit Stabil"
+            pesan_alert = "Tidak ada tren negatif signifikan"
+            if not df_desolasi.empty:
+                unit_terbanyak = df_desolasi['Unit'].mode()[0]
+                unit_alert = f"{unit_terbanyak}: Desolation Tinggi"
+                pesan_alert = f"Tren terdeteksi paling tinggi di {unit_terbanyak}"
+
+            # --- ROW 1: KPI CARDS DENGAN EXPANDER ---
+            col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
+            
+            with col_kpi1:
+                st.markdown(f"""
+<div class="kpi-card kpi-card-blue">
+    <div class="kpi-label">SCHOOL-WIDE MOOD 📈</div>
+    <div class="kpi-val">{persen_konsolasi}% Konsolasi</div>
+    <div class="kpi-desc">Berdasarkan {total_data} total laporan batin</div>
+</div>
+                """, unsafe_allow_html=True)
+                with st.expander("📊 Lihat Detail per Unit"):
+                    # Hitung persentase konsolasi per unit
+                    df_mood = df.groupby(['Unit', 'Status Awal']).size().unstack(fill_value=0).reset_index()
+                    if 'Konsolasi' not in df_mood.columns: df_mood['Konsolasi'] = 0
+                    if 'Desolasi' not in df_mood.columns: df_mood['Desolasi'] = 0
+                    df_mood['Total'] = df_mood['Konsolasi'] + df_mood['Desolasi']
+                    df_mood['% Konsolasi'] = (df_mood['Konsolasi'] / df_mood['Total'] * 100).round(1)
+                    
+                    st.dataframe(df_mood[['Unit', '% Konsolasi', 'Total']], hide_index=True, use_container_width=True)
+                
+            with col_kpi2:
+                st.markdown(f"""
+<div class="kpi-card kpi-card-yellow">
+    <div class="kpi-label">UNIT ALERT ⚠️</div>
+    <div class="kpi-val kpi-val-yellow">{unit_alert}</div>
+    <div class="kpi-desc">{pesan_alert}</div>
+</div>
+                """, unsafe_allow_html=True)
+                with st.expander("⚠️ Pantau Unit Lainnya"):
+                    if not df_desolasi.empty:
+                        df_desolasi_counts = df_desolasi['Unit'].value_counts().reset_index()
+                        df_desolasi_counts.columns = ['Unit', 'Jumlah Desolasi']
+                        st.dataframe(df_desolasi_counts, hide_index=True, use_container_width=True)
+                    else:
+                        st.success("Tidak ada data desolasi saat ini.")
+                
+            with col_kpi3:
+                st.markdown("""
+<div class="kpi-card kpi-card-cyan">
+    <div class="kpi-label">PATTERN DETECTED 🧠</div>
+    <div class="kpi-val kpi-val-cyan">Perlu Pemindaian</div>
+    <div class="kpi-desc">Klik dropdown di bawah untuk memindai pola batin.</div>
+</div>
+                """, unsafe_allow_html=True)
+                with st.expander("🔍 Pindai Pola Batin"):
+                    opsi_pola = ["Seluruh Sekolah"] + sorted(df['Unit'].unique().tolist())
+                    target_pola = st.selectbox("Pilih Target Pindaian:", opsi_pola, label_visibility="collapsed")
+                    
+                    if st.button("Jalankan Pemindaian Pola"):
+                        with st.spinner("Memproses data teks..."):
+                            df_target = df if target_pola == "Seluruh Sekolah" else df[df['Unit'] == target_pola]
+                            teks_refleksi = " ".join(df_target.tail(30)['Refleksi'].dropna().astype(str).tolist())
+                            
+                            if teks_refleksi.strip():
+                                prompt_pola = f"Sebutkan 1 frasa singkat (maksimal 4 kata) yang menjadi tema utama atau masalah paling sering muncul dari kumpulan curhatan ini: '{teks_refleksi}'. Lalu berikan 2 kalimat penjelasan singkat."
+                                try:
+                                    response = model.generate_content(prompt_pola)
+                                    st.success("Pemindaian Selesai!")
+                                    st.info(response.text)
+                                except Exception as e:
+                                    st.error("Gagal terhubung ke AI.")
+                            else:
+                                st.warning("Data refleksi tidak cukup untuk dipindai.")
+            
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            # --- ROW 2: CHART & PRIORITY LIST ---
+            col_mid1, col_mid2 = st.columns([2.5, 1.2])
+            
+            with col_mid1:
+                st.markdown("""
+<div style="background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
+    <div style="color: #002244; font-size: 18px; font-weight: 800; margin-bottom: 5px;">Trend Batin Per Unit</div>
+    <div style="color: #8ba1b5; font-size: 13px;">Perbandingan Tingkat Konsolasi vs Desolasi (Data Real-Time)</div>
+</div>
+                """, unsafe_allow_html=True)
+                
+                df_unit = df.groupby(['Unit', 'Status Awal']).size().reset_index(name='Jumlah')
+                fig_bar = px.bar(
+                    df_unit, 
+                    y='Unit', 
+                    x='Jumlah', 
+                    color='Status Awal', 
+                    orientation='h', 
+                    barmode='group',
+                    color_discrete_map={'Konsolasi':'#002244', 'Desolasi':'#e2e8f0'} 
+                )
+                fig_bar.update_layout(
+                    margin=dict(t=10, b=0, l=0, r=0),
+                    paper_bgcolor='rgba(0,0,0,0)',
+                    plot_bgcolor='rgba(0,0,0,0)',
+                    yaxis_title=None,
+                    xaxis_title=None,
+                    legend_title=None,
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                st.plotly_chart(fig_bar, use_container_width=True)
+
+            with col_mid2:
+                # Menampilkan anak-anak yang desolasi terakhir kali
+                st.markdown("""
+<div class="section-container" style="padding-bottom: 5px;">
+    <div class="section-title">Priority Cura Personalis</div>
+    <div class="section-subtitle">High Risk Intervention List</div>
+</div>
+                """, unsafe_allow_html=True)
+                
+                df_desolasi_terakhir = df[df['Status Awal'] == 'Desolasi'].tail(3).iloc[::-1]
+                
+                if not df_desolasi_terakhir.empty:
+                    for idx, row in df_desolasi_terakhir.iterrows():
+                        st.markdown(f"""
+                        <div class="priority-item">
+                            <span class="badge-red">PERLU ATENSI</span>
+                            <div class="p-name">{row['Nama Siswa']}</div>
+                            <div class="p-class">{row['Unit']} - {row['Kelas']}</div>
+                            <div><span class="p-status">Desolasi</span> <span class="p-time">{row['Tanggal']}</span></div>
+                        </div>
+                        """, unsafe_allow_html=True)
+                else:
+                    st.info("Tidak ada siswa dalam radar risiko tinggi saat ini.")
+                    
+                st.markdown('<a href="#" class="view-all-btn">Lihat Semua di Menu Insight ></a>', unsafe_allow_html=True)
+
+        else:
+            st.info("Belum ada data refleksi yang masuk dalam sistem.")
+            
+    except Exception as e:
+        st.error(f"Gagal memuat Dashboard: {e}")
