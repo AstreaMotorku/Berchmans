@@ -118,12 +118,30 @@ if menu == "Dashboard":
             persen_konsolasi = int((jumlah_konsolasi / total_data) * 100) if total_data > 0 else 0
             
             df_desolasi = df[df['Status Awal'] == 'Desolasi']
+
+            # --- LOGIKA UNIT ALERT (THRESHOLD) ---
             unit_alert = "Semua Unit Stabil"
             pesan_alert = "Tidak ada tren negatif signifikan"
-            if not df_desolasi.empty:
-                unit_terbanyak = df_desolasi['Unit'].mode()[0]
-                unit_alert = f"{unit_terbanyak}: Desolation Tinggi"
-                pesan_alert = f"Tren terdeteksi paling tinggi di {unit_terbanyak}"
+            
+            df_mood_unit = df.groupby('Unit')['Status Awal'].value_counts().unstack(fill_value=0)
+            if 'Desolasi' not in df_mood_unit.columns:
+                df_mood_unit['Desolasi'] = 0
+            if 'Konsolasi' not in df_mood_unit.columns:
+                df_mood_unit['Konsolasi'] = 0
+                
+            df_mood_unit['Total'] = df_mood_unit['Konsolasi'] + df_mood_unit['Desolasi']
+            df_mood_unit['Persen_Desolasi'] = (df_mood_unit['Desolasi'] / df_mood_unit['Total']) * 100
+            
+            df_kritis = df_mood_unit[(df_mood_unit['Desolasi'] >= 3) & (df_mood_unit['Persen_Desolasi'] >= 30)]
+            
+            if not df_kritis.empty:
+                unit_terparah = df_kritis['Persen_Desolasi'].idxmax()
+                persen_parah = int(df_kritis.loc[unit_terparah, 'Persen_Desolasi'])
+                jumlah_parah = df_kritis.loc[unit_terparah, 'Desolasi']
+                
+                unit_alert = f"{unit_terparah}: Perlu Atensi!"
+                pesan_alert = f"⚠️ {persen_parah}% ({jumlah_parah} laporan) mengalami Desolasi"
+            # ----------------------------------------
 
             # --- ROW 1: KPI CARDS DENGAN EXPANDER ---
             col_kpi1, col_kpi2, col_kpi3 = st.columns(3)
