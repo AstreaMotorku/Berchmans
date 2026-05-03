@@ -276,83 +276,121 @@ if menu == "Dashboard":
 # ==========================================
 elif menu == "Data Input Center":
     st.title("Data Input Center 📥")
-    st.write("Pusat pencatatan data refleksi harian. Sistem dirancang untuk entri data cepat. Analisis komprehensif dapat diakses melalui menu Student Insights.")
+    st.write("Pusat pencatatan data refleksi harian. Pilih metode input yang sesuai dengan kebutuhan.")
     st.write("---")
     
     df_master = pd.read_csv(DB_MASTER)
-    col1, col2 = st.columns([1, 1])
     
-    with col1:
+    tab_manual, tab_excel = st.tabs(["📋 Batch Manual Entry (Per Kelas)", "📊 Bulk Excel Import"])
+    
+    # --- TAB 1: BATCH MANUAL ENTRY ---
+    with tab_manual:
+        st.markdown("### 📋 Batch Manual Entry by Class")
+        st.markdown("<p style='color:#8ba1b5; font-size:14px; margin-top:-10px;'>Rapid entry for multiple students in a single session. Isi data sekaligus dan klik simpan di paling bawah.</p>", unsafe_allow_html=True)
+        
+        if df_master.empty:
+            st.warning("⚠️ Master Data kosong. Silakan isi daftar nama di menu 'Database Management' terlebih dahulu.")
+        else:
+            col_tgl, col_unit, col_kelas = st.columns(3)
+            with col_tgl:
+                tanggal_refleksi = st.date_input("Tanggal Refleksi", datetime.now().date())
+            with col_unit:
+                list_unit = sorted(df_master['Unit'].dropna().unique().tolist())
+                unit_terpilih = st.selectbox("Pilih Unit", list_unit)
+            with col_kelas:
+                df_unit_itu = df_master[df_master['Unit'] == unit_terpilih]
+                list_kelas = [k for k in df_unit_itu['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
+                if list_kelas:
+                    kelas_terpilih = st.selectbox("Pilih Kelas", sorted(list_kelas))
+                else:
+                    kelas_terpilih = "-"
+            
+            if kelas_terpilih != "-":
+                df_kelas = df_unit_itu[df_unit_itu['Kelas'] == kelas_terpilih]
+                list_nama = sorted(df_kelas['Nama Siswa'].dropna().tolist())
+                
+                st.write("---")
+                
+                col_h1, col_h2, col_h3 = st.columns([2, 1.8, 3])
+                col_h1.markdown("<span style='font-size:12px; font-weight:800; color:#8ba1b5; letter-spacing:1px;'>NAMA SISWA</span>", unsafe_allow_html=True)
+                col_h2.markdown("<span style='font-size:12px; font-weight:800; color:#8ba1b5; letter-spacing:1px;'>DOMINASI BATIN</span>", unsafe_allow_html=True)
+                col_h3.markdown("<span style='font-size:12px; font-weight:800; color:#8ba1b5; letter-spacing:1px;'>TEKS REFLEKSI</span>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin-top: 5px; margin-bottom: 15px;'>", unsafe_allow_html=True)
+                
+                with st.form("batch_form"):
+                    input_data = []
+                    
+                    for nama in list_nama:
+                        c1, c2, c3 = st.columns([2, 1.8, 3])
+                        with c1:
+                            st.markdown(f"<div style='padding-top:8px; font-weight:700; color:#002244;'>{nama}</div>", unsafe_allow_html=True)
+                        with c2:
+                            batin = st.radio("Batin", ["Kosong", "Konsolasi", "Desolasi"], horizontal=True, key=f"batin_{nama}", label_visibility="collapsed")
+                        with c3:
+                            refleksi = st.text_input("Refleksi", key=f"ref_{nama}", label_visibility="collapsed", placeholder="Ketik refleksi singkat...")
+                            
+                        input_data.append({"nama": nama, "batin": batin, "refleksi": refleksi})
+                        st.markdown("<div style='margin-bottom: 5px; border-bottom: 1px dashed #e0e0e0;'></div>", unsafe_allow_html=True)
+                        
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    submit_btn = st.form_submit_button("💾 Simpan Semua Data Kelas", type="primary", use_container_width=True)
+                    
+                    if submit_btn:
+                        data_to_save = []
+                        for item in input_data:
+                            if item["batin"] != "Kosong":
+                                data_to_save.append({
+                                    "Tanggal": tanggal_refleksi.strftime("%Y-%m-%d"),
+                                    "Unit": unit_terpilih,
+                                    "Kelas": kelas_terpilih,
+                                    "Nama Siswa": item["nama"],
+                                    "Status Awal": item["batin"],
+                                    "Refleksi": item["refleksi"]
+                                })
+                        
+                        if data_to_save:
+                            df_batin = pd.read_csv(DB_BATIN)
+                            df_baru = pd.DataFrame(data_to_save)
+                            df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
+                            df_batin.to_csv(DB_BATIN, index=False)
+                            st.success(f"✅ {len(data_to_save)} data refleksi siswa dari kelas {kelas_terpilih} berhasil disimpan!")
+                        else:
+                            st.warning("⚠️ Tidak ada data yang disimpan. Pastikan Anda memilih Konsolasi/Desolasi minimal untuk 1 siswa.")
+
+    # --- TAB 2: BULK EXCEL IMPORT ---
+    with tab_excel:
         st.markdown("### 📊 Bulk Excel Import")
-        file_refleksi = st.file_uploader("Upload File Refleksi (CSV/Excel)", type=['csv', 'xlsx'], key="bulk")
+        st.info("Upload Template Refleksi offline dalam format CSV/Excel. Cocok untuk input data massal dari Google Form yang diunduh ke Excel.")
+        file_refleksi = st.file_uploader("Upload File Refleksi", type=['csv', 'xlsx'], key="bulk")
         
         if file_refleksi:
             if st.button("🚀 Simpan Massal ke Database"):
-                if file_refleksi.name.endswith('.csv'):
-                    df_bulk = pd.read_csv(file_refleksi)
-                else:
-                    df_bulk = pd.read_excel(file_refleksi)
-                
-                df_batin = pd.read_csv(DB_BATIN)
-                data_baru_list = []
-                
-                for i, row in df_bulk.iterrows():
-                    tgl_input = row.get('Tanggal', datetime.now().strftime("%Y-%m-%d"))
-                    data_baru_list.append({
-                        "Tanggal": tgl_input,
-                        "Unit": row.get('Unit', '-'),
-                        "Kelas": row.get('Kelas', '-'),
-                        "Nama Siswa": row.get('Nama Lengkap', row.get('Nama Siswa', 'Anonim')),
-                        "Status Awal": row.get('Dominasi Batin', 'Tidak Diketahui'),
-                        "Refleksi": row.get('Teks Refleksi', '')
-                    })
-                
-                df_baru = pd.DataFrame(data_baru_list)
-                df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
-                df_batin.to_csv(DB_BATIN, index=False)
-                st.success(f"✅ {len(df_bulk)} data berhasil disimpan!")
-
-    with col2:
-        st.markdown("### ✍️ Manual Entry")
-        if df_master.empty:
-            st.warning("⚠️ Silakan lengkapi Master Data di menu 'Database Management' terlebih dahulu.")
-        else:
-            tanggal_refleksi = st.date_input("Tanggal Refleksi", datetime.now().date())
-            
-            list_unit = df_master['Unit'].dropna().unique().tolist()
-            unit_terpilih = st.selectbox("Pilih Unit", sorted(list_unit))
-            df_unit_itu = df_master[df_master['Unit'] == unit_terpilih]
-            
-            list_kelas = [k for k in df_unit_itu['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
-            if list_kelas:
-                kelas_terpilih = st.selectbox("Pilih Kelas", sorted(list_kelas))
-                df_final = df_unit_itu[df_unit_itu['Kelas'] == kelas_terpilih]
-            else:
-                kelas_terpilih = "-"
-                df_final = df_unit_itu
-                
-            list_nama = df_final['Nama Siswa'].dropna().tolist()
-            nama_terpilih = st.selectbox("Pilih Nama", sorted(list_nama))
-            
-            batin = st.radio("Dominasi Batin (Self-Reported)", ["Konsolasi", "Desolasi"], horizontal=True)
-            refleksi = st.text_area("Teks Refleksi Siswa")
-            
-            if st.button("Simpan Laporan"):
-                if refleksi:
-                    df = pd.read_csv(DB_BATIN)
-                    data_baru = pd.DataFrame([{
-                        "Tanggal": tanggal_refleksi.strftime("%Y-%m-%d"),
-                        "Unit": unit_terpilih,
-                        "Kelas": kelas_terpilih,
-                        "Nama Siswa": nama_terpilih,
-                        "Status Awal": batin,
-                        "Refleksi": refleksi
-                    }])
-                    df = pd.concat([df, data_baru], ignore_index=True)
-                    df.to_csv(DB_BATIN, index=False)
-                    st.success(f"✅ Data refleksi {nama_terpilih} tanggal {tanggal_refleksi.strftime('%d-%m-%Y')} tersimpan!")
-                else:
-                    st.error("Teks Refleksi wajib diisi!")
+                try:
+                    if file_refleksi.name.endswith('.csv'):
+                        df_bulk = pd.read_csv(file_refleksi)
+                    else:
+                        df_bulk = pd.read_excel(file_refleksi)
+                    
+                    df_batin = pd.read_csv(DB_BATIN)
+                    data_baru_list = []
+                    
+                    for i, row in df_bulk.iterrows():
+                        tgl_input = row.get('Tanggal', datetime.now().strftime("%Y-%m-%d"))
+                        data_baru_list.append({
+                            "Tanggal": tgl_input,
+                            "Unit": row.get('Unit', '-'),
+                            "Kelas": row.get('Kelas', '-'),
+                            "Nama Siswa": row.get('Nama Lengkap', row.get('Nama Siswa', 'Anonim')),
+                            "Status Awal": row.get('Dominasi Batin', 'Tidak Diketahui'),
+                            "Refleksi": row.get('Teks Refleksi', '')
+                        })
+                    
+                    df_baru = pd.DataFrame(data_baru_list)
+                    df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
+                    df_batin.to_csv(DB_BATIN, index=False)
+                    st.success(f"✅ {len(df_bulk)} baris data berhasil dibaca dan disimpan!")
+                except Exception as e:
+                    st.error(f"Gagal memproses file: {e}. Pastikan format kolom sesuai dengan standar sistem.")
 
 # ==========================================
 # HALAMAN 3: STUDENT INSIGHTS 
