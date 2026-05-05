@@ -532,6 +532,45 @@ elif menu == "Database Management":
     st.title("Manajemen Data Induk 🗃️")
     st.write("Pusat pengelolaan direktori civitas akademika. Data yang diunggah akan terintegrasi secara otomatis dengan seluruh modul.")
     
+    # --- KOTAK METRIK REKAPITULASI ---
+    try:
+        df_master = pd.read_csv(DB_MASTER)
+        if not df_master.empty:
+            total_all = len(df_master)
+            
+            df_staff = df_master[df_master['Kelas'].isna() | (df_master['Kelas'] == '-')]
+            df_siswa = df_master.dropna(subset=['Kelas'])
+            df_siswa = df_siswa[df_siswa['Kelas'] != '-']
+            
+            rekap_siswa = df_siswa['Unit'].value_counts().to_dict()
+            jumlah_staff = len(df_staff)
+            
+            st.markdown("""
+            <style>
+            .rekap-container { display: flex; gap: 15px; margin-top: 20px; margin-bottom: 25px; flex-wrap: wrap; justify-content: space-between;}
+            .rekap-box { background-color: #f8f9fa; border-radius: 12px; padding: 20px 10px; text-align: center; border: 1px solid #e9ecef; flex: 1; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+            .rekap-title { font-size: 11px; font-weight: 800; color: #8ba1b5; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px; line-height: 1.2;}
+            .rekap-val { font-size: 28px; font-weight: 900; color: #002244; }
+            </style>
+            """, unsafe_allow_html=True)
+            
+            html_boxes = f'<div class="rekap-container">'
+            html_boxes += f'<div class="rekap-box"><div class="rekap-title">TOTAL TERDAFTAR</div><div class="rekap-val">{total_all}</div></div>'
+            
+            for unit, jumlah in rekap_siswa.items():
+                html_boxes += f'<div class="rekap-box"><div class="rekap-title">UNIT {unit}</div><div class="rekap-val">{jumlah}</div></div>'
+            
+            if jumlah_staff > 0:
+                html_boxes += f'<div class="rekap-box"><div class="rekap-title">TEACHER & STAFF</div><div class="rekap-val">{jumlah_staff}</div></div>'
+                
+            html_boxes += '</div>'
+            
+            st.markdown(html_boxes, unsafe_allow_html=True)
+    except Exception as e:
+        pass
+        
+    st.write("---")
+
     # --- BAGIAN 1: UPLOAD DENGAN KOLOM ---
     col_up1, col_up2 = st.columns([1, 1])
     with col_up1:
