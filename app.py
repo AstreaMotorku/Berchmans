@@ -31,10 +31,14 @@ except Exception as e:
 DB_MASTER = "master_siswa.csv"
 DB_BATIN = "database_batin.csv"
 
+DB_STAFF = "database_staff_counseling.csv"
+
 if not os.path.exists(DB_MASTER):
     pd.DataFrame(columns=["Nama Siswa", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
 if not os.path.exists(DB_BATIN):
     pd.DataFrame(columns=["Tanggal", "Unit", "Kelas", "Nama Siswa", "Status Awal", "Refleksi"]).to_csv(DB_BATIN, index=False)
+if not os.path.exists(DB_STAFF):
+    pd.DataFrame(columns=["Tanggal", "Unit", "Nama Staff", "Detail Konseling", "Analisis AI"]).to_csv(DB_STAFF, index=False)
 
 # 4. TEMA & WARNA 
 st.markdown("""
@@ -54,8 +58,8 @@ with st.sidebar:
     st.markdown('<p style="color:#8ba1b5; font-size:12px; font-weight:700; letter-spacing:1.5px; margin-bottom: 0px; margin-left: 15px;">MAIN MENU</p>', unsafe_allow_html=True)
     menu = option_menu(
         menu_title=None,
-        options=["Dashboard", "Data Input Center", "Student Insights", "Database Management"],
-        icons=["grid", "server", "people", "hdd-stack"], 
+        options=["Dashboard", "Data Input Center", "Student Insights", "Staff Tracker", "Database Management"],
+        icons=["grid", "server", "people", "briefcase", "hdd-stack"], 
         default_index=1, 
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
@@ -524,6 +528,135 @@ elif menu == "Student Insights":
                 
     except FileNotFoundError:
         st.error("Database belum terbentuk.")
+
+# ==========================================
+# HALAMAN BARU: STAFF TRACKER
+# ==========================================
+elif menu == "Staff Tracker":
+    st.title("Teacher & Staff Tracker 🧑‍🏫")
+    st.write("Modul khusus pendampingan, konseling, dan evaluasi kesejahteraan (well-being) Guru & Staff.")
+    st.write("---")
+
+    df_master = pd.read_csv(DB_MASTER)
+    df_staff = df_master[df_master['Kelas'].isna() | (df_master['Kelas'] == '-')]
+
+    if df_staff.empty:
+        st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan kolom 'Kelas' dikosongkan saat upload Excel untuk memasukkan data Guru/Staff.")
+    else:
+        tab_input, tab_riwayat = st.tabs(["📝 Input Konseling", "🗂️ Riwayat & Laporan Akhir"])
+
+        with tab_input:
+            col_i1, col_i2 = st.columns([1, 2.5])
+            
+            with col_i1:
+                list_unit_staff = sorted(df_staff['Unit'].dropna().unique().tolist())
+                unit_staff = st.selectbox("Pilih Unit", list_unit_staff, key="unit_staff")
+
+                df_staff_filtered = df_staff[df_staff['Unit'] == unit_staff]
+                list_nama_staff = sorted(df_staff_filtered['Nama Siswa'].dropna().tolist())
+                nama_staff = st.selectbox("Nama Guru/Staff", list_nama_staff, key="nama_staff")
+
+                tanggal_konseling = st.date_input("Tanggal Konseling", datetime.now().date(), key="tgl_staff")
+
+            with col_i2:
+                detail_konseling = st.text_area("Detail Konseling / Catatan Pendampingan", height=200, placeholder="Tuliskan keluhan, hasil wawancara, atau masalah yang dihadapi di sini...")
+
+                st.markdown("""
+                    <style>
+                    [data-testid="baseButton-primary"] { background-color: #002244 !important; color: white !important; border: none !important; border-radius: 8px !important; }
+                    [data-testid="baseButton-primary"]:hover { background-color: #dca235 !important; color: #002244 !important; }
+                    </style>
+                """, unsafe_allow_html=True)
+
+                if st.button("💾 Simpan & Analisis AI", use_container_width=True, type="primary"):
+                    if detail_konseling:
+                        with st.spinner("AI sedang memproses analisis psikologis organisasional..."):
+                            prompt = f"""
+                            Sebagai seorang Psikolog Industri/Organisasi dan Konselor Pastoral di lingkungan sekolah, analisislah catatan konseling dari staff/guru berikut ini.
+                            PENTING: Langsung berikan analisis profesional tanpa basa-basi perkenalan.
+
+                            Nama: {nama_staff}
+                            Catatan Konseling: {detail_konseling}
+
+                            Berikan laporan dengan format:
+                            1. **Akar Masalah (Root Cause):** (Identifikasi isu utama secara psikologis/profesional)
+                            2. **Kondisi Well-being:** (Evaluasi kesejahteraan mental dan emosional saat ini)
+                            3. **Rekomendasi Tindak Lanjut:** (Langkah konkrit untuk Kepala Sekolah / HRD dalam mendampingi)
+                            """
+                            try:
+                                response = model.generate_content(prompt)
+                                hasil_ai = response.text
+
+                                df_staff_db = pd.read_csv(DB_STAFF)
+                                data_baru = pd.DataFrame([{
+                                    "Tanggal": tanggal_konseling.strftime("%Y-%m-%d"),
+                                    "Unit": unit_staff,
+                                    "Nama Staff": nama_staff,
+                                    "Detail Konseling": detail_konseling,
+                                    "Analisis AI": hasil_ai
+                                }])
+                                df_staff_db = pd.concat([df_staff_db, data_baru], ignore_index=True)
+                                df_staff_db.to_csv(DB_STAFF, index=False)
+
+                                st.success(f"✅ Data konseling {nama_staff} berhasil disimpan dan dianalisis!")
+                                st.info(hasil_ai)
+
+                            except Exception as e:
+                                st.error(f"Gagal memproses AI: {e}")
+                    else:
+                        st.error("Catatan konseling wajib diisi!")
+
+        with tab_riwayat:
+            st.markdown("### 🗂️ Riwayat Konseling Staff")
+            try:
+                df_staff_db = pd.read_csv(DB_STAFF)
+                if df_staff_db.empty:
+                    st.info("Belum ada riwayat konseling.")
+                else:
+                    df_staff_db = df_staff_db.sort_values(by='Tanggal', ascending=False).reset_index(drop=True)
+                    st.dataframe(df_staff_db[['Tanggal', 'Unit', 'Nama Staff', 'Detail Konseling']], use_container_width=True)
+
+                    st.markdown("<br><hr>", unsafe_allow_html=True)
+                    st.markdown("### 🖨️ Cetak Laporan Konseling (Word)")
+                    
+                    col_r1, col_r2 = st.columns([2, 1])
+                    with col_r1:
+                        pilihan_cetak = df_staff_db['Nama Staff'] + " (" + df_staff_db['Tanggal'] + ")"
+                        laporan_terpilih = st.selectbox("Pilih sesi konseling yang ingin dicetak:", pilihan_cetak.tolist())
+
+                    with col_r2:
+                        st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
+                        if st.button("Siapkan Dokumen", use_container_width=True):
+                            idx = pilihan_cetak == laporan_terpilih
+                            row_data = df_staff_db[idx].iloc[0]
+
+                            doc = Document()
+                            doc.add_heading('LAPORAN KONSELING GURU & STAFF', level=1)
+                            doc.add_paragraph(f"Nama Staff: {row_data['Nama Staff']}")
+                            doc.add_paragraph(f"Unit: {row_data['Unit']}")
+                            doc.add_paragraph(f"Tanggal Konseling: {row_data['Tanggal']}")
+                            
+                            doc.add_heading('Catatan Awal Konselor:', level=2)
+                            doc.add_paragraph(row_data['Detail Konseling'])
+                            
+                            doc.add_heading('Analisis Psikologis & Rekomendasi (AI):', level=2)
+                            teks_bersih = str(row_data['Analisis AI']).replace('**', '')
+                            doc.add_paragraph(teks_bersih)
+
+                            bio = io.BytesIO()
+                            doc.save(bio)
+                            bio.seek(0)
+
+                            st.download_button(
+                                label="📥 Download Laporan (Word)",
+                                data=bio,
+                                file_name=f"Laporan_Konseling_Staff_{row_data['Nama Staff'].replace(' ', '_')}.docx",
+                                mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                type="primary",
+                                use_container_width=True
+                            )
+            except FileNotFoundError:
+                st.error("Database konseling belum terbentuk.")
 
 # ==========================================
 # HALAMAN 4: DATABASE MANAGEMENT 
