@@ -286,7 +286,7 @@ elif menu == "Data Input Center":
     # --- TAB 1: BATCH MANUAL ENTRY ---
     with tab_manual:
         st.markdown("### 📋 Batch Manual Entry by Class")
-        st.markdown("<p style='color:#8ba1b5; font-size:14px; margin-top:-10px;'>Rapid entry for multiple students in a single session. Isi data sekaligus dan klik simpan di paling bawah.</p>", unsafe_allow_html=True)
+        st.markdown("<p style='color:#8ba1b5; font-size:14px; margin-top:-10px;'>Rapid entry for multiple students. Isi data sekaligus dan klik simpan di paling bawah.</p>", unsafe_allow_html=True)
         
         if df_master.empty:
             st.warning("⚠️ Master Data kosong. Silakan isi daftar nama di menu 'Database Management' terlebih dahulu.")
@@ -311,34 +311,51 @@ elif menu == "Data Input Center":
                 
                 st.write("---")
                 
-                col_h1, col_h2, col_h3 = st.columns([2, 1.8, 3])
+                col_h1, col_h2, col_h3 = st.columns([1.5, 2.5, 3])
                 col_h1.markdown("<span style='font-size:12px; font-weight:800; color:#8ba1b5; letter-spacing:1px;'>NAMA SISWA</span>", unsafe_allow_html=True)
                 col_h2.markdown("<span style='font-size:12px; font-weight:800; color:#8ba1b5; letter-spacing:1px;'>DOMINASI BATIN</span>", unsafe_allow_html=True)
                 col_h3.markdown("<span style='font-size:12px; font-weight:800; color:#8ba1b5; letter-spacing:1px;'>TEKS REFLEKSI</span>", unsafe_allow_html=True)
-                st.markdown("<hr style='margin-top: 5px; margin-bottom: 15px;'>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin-top: 5px; margin-bottom: 10px; border-top: 1px solid #e0e0e0;'>", unsafe_allow_html=True)
                 
-                with st.form("batch_form"):
+                with st.form("batch_form", border=False):
                     input_data = []
                     
                     for nama in list_nama:
-                        c1, c2, c3 = st.columns([2, 1.8, 3])
+                        c1, c2, c3 = st.columns([1.5, 2.5, 3])
                         with c1:
-                            st.markdown(f"<div style='padding-top:8px; font-weight:700; color:#002244;'>{nama}</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='padding-top:10px; font-weight:600; color:#002244; font-size:14px;'>{nama}</div>", unsafe_allow_html=True)
                         with c2:
-                            batin = st.radio("Batin", ["Kosong", "Konsolasi", "Desolasi"], horizontal=True, key=f"batin_{nama}", label_visibility="collapsed")
+                            batin = st.radio("Batin", ["Lewati", "Konsolasi", "Desolasi"], horizontal=True, key=f"batin_{nama}", label_visibility="collapsed")
                         with c3:
                             refleksi = st.text_input("Refleksi", key=f"ref_{nama}", label_visibility="collapsed", placeholder="Ketik refleksi singkat...")
                             
                         input_data.append({"nama": nama, "batin": batin, "refleksi": refleksi})
-                        st.markdown("<div style='margin-bottom: 5px; border-bottom: 1px dashed #e0e0e0;'></div>", unsafe_allow_html=True)
+                        st.markdown("<div style='margin-bottom: 5px; border-bottom: 1px solid #f0f2f6;'></div>", unsafe_allow_html=True)
                         
                     st.markdown("<br>", unsafe_allow_html=True)
-                    submit_btn = st.form_submit_button("💾 Simpan Semua Data Kelas", type="primary", use_container_width=True)
+                    
+                    st.markdown("""
+                        <style>
+                        [data-testid="stFormSubmitButton"] button {
+                            background-color: #002244 !important;
+                            color: white !important;
+                            border-radius: 8px !important;
+                            border: none !important;
+                            font-weight: bold !important;
+                        }
+                        [data-testid="stFormSubmitButton"] button:hover {
+                            background-color: #dca235 !important;
+                            color: #002244 !important;
+                        }
+                        </style>
+                    """, unsafe_allow_html=True)
+                    
+                    submit_btn = st.form_submit_button("💾 Simpan Semua Data Kelas", use_container_width=True)
                     
                     if submit_btn:
                         data_to_save = []
                         for item in input_data:
-                            if item["batin"] != "Kosong":
+                            if item["batin"] != "Lewati":
                                 data_to_save.append({
                                     "Tanggal": tanggal_refleksi.strftime("%Y-%m-%d"),
                                     "Unit": unit_terpilih,

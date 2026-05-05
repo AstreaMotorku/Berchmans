@@ -1,0 +1,98 @@
+# --- TAB 1: BATCH MANUAL ENTRY ---
+    with tab_manual:
+        st.markdown("### 📋 Batch Manual Entry by Class")
+        st.markdown("<p style='color:#8ba1b5; font-size:14px; margin-top:-10px;'>Rapid entry for multiple students. Isi data sekaligus dan klik simpan di paling bawah.</p>", unsafe_allow_html=True)
+        
+        if df_master.empty:
+            st.warning("⚠️ Master Data kosong. Silakan isi daftar nama di menu 'Database Management' terlebih dahulu.")
+        else:
+            col_tgl, col_unit, col_kelas = st.columns(3)
+            with col_tgl:
+                tanggal_refleksi = st.date_input("Tanggal Refleksi", datetime.now().date())
+            with col_unit:
+                list_unit = sorted(df_master['Unit'].dropna().unique().tolist())
+                unit_terpilih = st.selectbox("Pilih Unit", list_unit)
+            with col_kelas:
+                df_unit_itu = df_master[df_master['Unit'] == unit_terpilih]
+                list_kelas = [k for k in df_unit_itu['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
+                if list_kelas:
+                    kelas_terpilih = st.selectbox("Pilih Kelas", sorted(list_kelas))
+                else:
+                    kelas_terpilih = "-"
+            
+            if kelas_terpilih != "-":
+                df_kelas = df_unit_itu[df_unit_itu['Kelas'] == kelas_terpilih]
+                list_nama = sorted(df_kelas['Nama Siswa'].dropna().tolist())
+                
+                st.write("---")
+                
+                # Header Tabel Kustom (Proporsi kolom disesuaikan biar radio button tidak turun)
+                col_h1, col_h2, col_h3 = st.columns([1.5, 2.5, 3])
+                col_h1.markdown("<span style='font-size:12px; font-weight:800; color:#8ba1b5; letter-spacing:1px;'>NAMA SISWA</span>", unsafe_allow_html=True)
+                col_h2.markdown("<span style='font-size:12px; font-weight:800; color:#8ba1b5; letter-spacing:1px;'>DOMINASI BATIN</span>", unsafe_allow_html=True)
+                col_h3.markdown("<span style='font-size:12px; font-weight:800; color:#8ba1b5; letter-spacing:1px;'>TEKS REFLEKSI</span>", unsafe_allow_html=True)
+                st.markdown("<hr style='margin-top: 5px; margin-bottom: 10px; border-top: 1px solid #e0e0e0;'>", unsafe_allow_html=True)
+                
+                # Form tanpa border bawaan
+                with st.form("batch_form", border=False):
+                    input_data = []
+                    
+                    for nama in list_nama:
+                        # Lebar kolom c2 ditambah supaya radio button sejajar 1 baris
+                        c1, c2, c3 = st.columns([1.5, 2.5, 3])
+                        with c1:
+                            # Padding-top ditambah biar sejajar secara vertikal dengan input form
+                            st.markdown(f"<div style='padding-top:10px; font-weight:600; color:#002244; font-size:14px;'>{nama}</div>", unsafe_allow_html=True)
+                        with c2:
+                            # Teks 'Kosong' diganti 'Lewati' agar lebih hemat tempat
+                            batin = st.radio("Batin", ["Lewati", "Konsolasi", "Desolasi"], horizontal=True, key=f"batin_{nama}", label_visibility="collapsed")
+                        with c3:
+                            refleksi = st.text_input("Refleksi", key=f"ref_{nama}", label_visibility="collapsed", placeholder="Ketik refleksi singkat...")
+                            
+                        input_data.append({"nama": nama, "batin": batin, "refleksi": refleksi})
+                        # Garis pemisah yang lebih halus dan elegan
+                        st.markdown("<div style='margin-bottom: 5px; border-bottom: 1px solid #f0f2f6;'></div>", unsafe_allow_html=True)
+                        
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    
+                    # Hack CSS agar tombol Submit Form warnanya Dark Blue, bukan Merah
+                    st.markdown("""
+                        <style>
+                        [data-testid="stFormSubmitButton"] button {
+                            background-color: #002244 !important;
+                            color: white !important;
+                            border-radius: 8px !important;
+                            border: none !important;
+                            font-weight: bold !important;
+                        }
+                        [data-testid="stFormSubmitButton"] button:hover {
+                            background-color: #dca235 !important;
+                            color: #002244 !important;
+                        }
+                        </style>
+                    """, unsafe_allow_html=True)
+                    
+                    submit_btn = st.form_submit_button("💾 Simpan Semua Data Kelas", use_container_width=True)
+                    
+                    if submit_btn:
+                        data_to_save = []
+                        for item in input_data:
+                            # Hanya simpan anak yang radio button-nya digeser ke Konsolasi/Desolasi
+                            if item["batin"] != "Lewati": 
+                                data_to_save.append({
+                                    "Tanggal": tanggal_refleksi.strftime("%Y-%m-%d"),
+                                    "Unit": unit_terpilih,
+                                    "Kelas": kelas_terpilih,
+                                    "Nama Siswa": item["nama"],
+                                    "Status Awal": item["batin"],
+                                    "Refleksi": item["refleksi"]
+                                })
+                        
+                        if data_to_save:
+                            df_batin = pd.read_csv(DB_BATIN)
+                            df_baru = pd.DataFrame(data_to_save)
+                            df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
+                            df_batin.to_csv(DB_BATIN, index=False)
+                            st.success(f"✅ {len(data_to_save)} data refleksi siswa dari kelas {kelas_terpilih} berhasil disimpan!")
+                        else:
+                            st.warning("⚠️ Tidak ada data yang disimpan. Pastikan Anda memilih Konsolasi/Desolasi minimal untuk 1 siswa.")
