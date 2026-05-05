@@ -34,7 +34,7 @@ DB_BATIN = "database_batin.csv"
 DB_STAFF = "database_staff_counseling.csv"
 
 if not os.path.exists(DB_MASTER):
-    pd.DataFrame(columns=["Nama Siswa", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
+    pd.DataFrame(columns=["Nama Siswa", "Nama Guru", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
 if not os.path.exists(DB_BATIN):
     pd.DataFrame(columns=["Tanggal", "Unit", "Kelas", "Nama Siswa", "Status Awal", "Refleksi"]).to_csv(DB_BATIN, index=False)
 if not os.path.exists(DB_STAFF):
@@ -295,14 +295,17 @@ elif menu == "Data Input Center":
         if df_master.empty:
             st.warning("⚠️ Master Data kosong. Silakan isi daftar nama di menu 'Database Management' terlebih dahulu.")
         else:
+            # Filter khusus siswa
+            df_master_siswa = df_master[df_master['Nama Siswa'].notna() & (df_master['Nama Siswa'] != '')]
+            
             col_tgl, col_unit, col_kelas = st.columns(3)
             with col_tgl:
                 tanggal_refleksi = st.date_input("Tanggal Refleksi", datetime.now().date())
             with col_unit:
-                list_unit = sorted(df_master['Unit'].dropna().unique().tolist())
+                list_unit = sorted(df_master_siswa['Unit'].dropna().unique().tolist())
                 unit_terpilih = st.selectbox("Pilih Unit", list_unit)
             with col_kelas:
-                df_unit_itu = df_master[df_master['Unit'] == unit_terpilih]
+                df_unit_itu = df_master_siswa[df_master_siswa['Unit'] == unit_terpilih]
                 list_kelas = [k for k in df_unit_itu['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
                 if list_kelas:
                     kelas_terpilih = st.selectbox("Pilih Kelas", sorted(list_kelas))
@@ -538,10 +541,11 @@ elif menu == "Staff Tracker":
     st.write("---")
 
     df_master = pd.read_csv(DB_MASTER)
-    df_staff = df_master[df_master['Kelas'].isna() | (df_master['Kelas'] == '-')]
+    # Filter cerdas: Ambil data yang Nama Guru-nya tidak kosong
+    df_staff = df_master[df_master['Nama Guru'].notna() & (df_master['Nama Guru'] != '')]
 
     if df_staff.empty:
-        st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan kolom 'Kelas' dikosongkan saat upload Excel untuk memasukkan data Guru/Staff.")
+        st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan kolom 'Nama Guru' diisi saat upload Excel.")
     else:
         tab_input, tab_riwayat = st.tabs(["📝 Input Konseling", "🗂️ Riwayat & Laporan Akhir"])
 
@@ -553,7 +557,7 @@ elif menu == "Staff Tracker":
                 unit_staff = st.selectbox("Pilih Unit", list_unit_staff, key="unit_staff")
 
                 df_staff_filtered = df_staff[df_staff['Unit'] == unit_staff]
-                list_nama_staff = sorted(df_staff_filtered['Nama Siswa'].dropna().tolist())
+                list_nama_staff = sorted(df_staff_filtered['Nama Guru'].dropna().tolist())
                 nama_staff = st.selectbox("Nama Guru/Staff", list_nama_staff, key="nama_staff")
 
                 tanggal_konseling = st.date_input("Tanggal Konseling", datetime.now().date(), key="tgl_staff")
@@ -671,9 +675,8 @@ elif menu == "Database Management":
         if not df_master.empty:
             total_all = len(df_master)
             
-            df_staff = df_master[df_master['Kelas'].isna() | (df_master['Kelas'] == '-')]
-            df_siswa = df_master.dropna(subset=['Kelas'])
-            df_siswa = df_siswa[df_siswa['Kelas'] != '-']
+            df_staff = df_master[df_master['Nama Guru'].notna() & (df_master['Nama Guru'] != '')]
+            df_siswa = df_master[df_master['Nama Siswa'].notna() & (df_master['Nama Siswa'] != '')]
             
             rekap_siswa = df_siswa['Unit'].value_counts().to_dict()
             jumlah_staff = len(df_staff)
@@ -723,16 +726,20 @@ elif menu == "Database Management":
                 
                 with col_btn1:
                     if st.button("➕ Tambah ke Data Lama", use_container_width=True):
+                        if 'Nama Guru' not in df_upload.columns: df_upload['Nama Guru'] = None
+                        if 'Nama Siswa' not in df_upload.columns: df_upload['Nama Siswa'] = None
                         df_lama = pd.read_csv(DB_MASTER)
                         df_gabung = pd.concat([df_lama, df_upload], ignore_index=True)
-                        df_gabung.drop_duplicates(subset=['Nama Siswa', 'Unit', 'Kelas'], keep='last', inplace=True)
-                        df_gabung = df_gabung.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
+                        df_gabung.drop_duplicates(subset=['Nama Siswa', 'Nama Guru', 'Unit', 'Kelas'], keep='last', inplace=True)
+                        df_gabung = df_gabung.sort_values(by=['Unit', 'Kelas', 'Nama Siswa', 'Nama Guru']).reset_index(drop=True)
                         df_gabung.to_csv(DB_MASTER, index=False)
                         st.success("✅ Data induk berhasil diperbarui!")
                 
                 with col_btn2:
                     if st.button("🔄 Timpa Semua (Reset)", use_container_width=True):
-                        df_upload = df_upload.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
+                        if 'Nama Guru' not in df_upload.columns: df_upload['Nama Guru'] = None
+                        if 'Nama Siswa' not in df_upload.columns: df_upload['Nama Siswa'] = None
+                        df_upload = df_upload.sort_values(by=['Unit', 'Kelas', 'Nama Siswa', 'Nama Guru']).reset_index(drop=True)
                         df_upload.to_csv(DB_MASTER, index=False)
                         st.success("✅ Seluruh data diganti dokumen baru!")
                         
