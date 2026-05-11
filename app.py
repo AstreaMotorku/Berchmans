@@ -269,6 +269,73 @@ if menu == "Dashboard":
                     
                 st.markdown('<a href="#" class="view-all-btn">Lihat Semua di Menu Insight ></a>', unsafe_allow_html=True)
 
+            # --- AI SUMMARY PER CLASS ---
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            df_kelas = df.groupby(['Kelas', 'Status Awal']).size().unstack(fill_value=0)
+            if 'Desolasi' not in df_kelas.columns:
+                df_kelas['Desolasi'] = 0
+            if 'Konsolasi' not in df_kelas.columns:
+                df_kelas['Konsolasi'] = 0
+
+            df_kelas['Total'] = df_kelas['Konsolasi'] + df_kelas['Desolasi']
+            df_kelas['Persen_Desolasi'] = (df_kelas['Desolasi'] / df_kelas['Total']) * 100
+            df_kelas['Persen_Konsolasi'] = (df_kelas['Konsolasi'] / df_kelas['Total']) * 100
+
+            html_table = (
+                '<div class="section-container">\n'
+                '    <div class="section-title">AI Summary per Class</div>\n'
+                '    <div class="section-subtitle">Rekapitulasi Dominasi Batin dan Status Atensi berdasarkan Kelas</div>\n'
+                '    <style>\n'
+                '    .summary-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-family: sans-serif; }\n'
+                '    .summary-table th { background-color: #002244; color: white; padding: 12px; text-align: left; font-size: 14px; border-radius: 4px 4px 0 0; }\n'
+                '    .summary-table td { padding: 12px; border-bottom: 1px solid #f0f2f6; font-size: 14px; color: #002244; }\n'
+                '    .summary-table tr:hover { background-color: #f4f6f9; }\n'
+                '    .status-aman { background-color: #e3fcec; color: #27ae60; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }\n'
+                '    .status-warning { background-color: #ff767533; color: #d63031; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }\n'
+                '    .dom-konsolasi { color: #002244; font-weight: bold; }\n'
+                '    .dom-desolasi { color: #d63031; font-weight: bold; }\n'
+                '    </style>\n'
+                '    <table class="summary-table">\n'
+                '        <thead>\n'
+                '            <tr>\n'
+                '                <th>Nama Kelas</th>\n'
+                '                <th>Dominasi Batin</th>\n'
+                '                <th>Status Atensi</th>\n'
+                '            </tr>\n'
+                '        </thead>\n'
+                '        <tbody>\n'
+            )
+
+            for kelas, row in df_kelas.iterrows():
+                if row['Total'] == 0:
+                    continue
+
+                persen_des = row['Persen_Desolasi']
+                persen_kon = row['Persen_Konsolasi']
+
+                if persen_des > persen_kon:
+                    dominasi = f"<span class='dom-desolasi'>Desolasi ({int(persen_des)}%)</span>"
+                elif persen_kon > persen_des:
+                    dominasi = f"<span class='dom-konsolasi'>Konsolasi ({int(persen_kon)}%)</span>"
+                else:
+                    dominasi = "<span style='color: #8ba1b5; font-weight: bold;'>Seimbang (50%)</span>"
+
+                if persen_des >= 30:
+                    status = "<span class='status-warning'>⚠️ Warning</span>"
+                else:
+                    status = "<span class='status-aman'>✅ Aman</span>"
+
+                html_table += f"<tr><td style='font-weight: bold;'>{kelas}</td><td>{dominasi}</td><td>{status}</td></tr>\n"
+
+            html_table += (
+                '        </tbody>\n'
+                '    </table>\n'
+                '</div>\n'
+            )
+
+            st.markdown(html_table, unsafe_allow_html=True)
+
         else:
             st.info("Belum ada data refleksi yang masuk dalam sistem.")
             
