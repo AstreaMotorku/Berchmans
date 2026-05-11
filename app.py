@@ -269,6 +269,69 @@ if menu == "Dashboard":
                     
                 st.markdown('<a href="#" class="view-all-btn">Lihat Semua di Menu Insight ></a>', unsafe_allow_html=True)
 
+            st.markdown("<br>", unsafe_allow_html=True)
+
+            # --- AI SUMMARY PER CLASS TABLE ---
+            st.markdown("""
+<div class="section-container" style="padding-bottom: 20px; margin-top: 10px;">
+    <div class="section-title">AI Summary per Class</div>
+    <div class="section-subtitle">Rekapitulasi Dominasi Batin dan Status Atensi Berdasarkan Kelas</div>
+</div>
+            """, unsafe_allow_html=True)
+
+            df_kelas = df.groupby(['Kelas', 'Status Awal']).size().unstack(fill_value=0)
+            if 'Konsolasi' not in df_kelas.columns: df_kelas['Konsolasi'] = 0
+            if 'Desolasi' not in df_kelas.columns: df_kelas['Desolasi'] = 0
+
+            df_kelas['Total'] = df_kelas['Konsolasi'] + df_kelas['Desolasi']
+            df_kelas['Persen_Desolasi'] = (df_kelas['Desolasi'] / df_kelas['Total']) * 100
+            df_kelas['Persen_Konsolasi'] = (df_kelas['Konsolasi'] / df_kelas['Total']) * 100
+
+            html_table = """
+<style>
+.class-summary-table { width: 100%; border-collapse: collapse; margin-top: -10px; margin-bottom: 20px; }
+.class-summary-table th { background-color: #f4f6f9; color: #8ba1b5; font-size: 13px; text-transform: uppercase; padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0; }
+.class-summary-table td { padding: 12px; border-bottom: 1px solid #f0f2f6; color: #002244; font-size: 14px; font-weight: 500; }
+.status-aman { color: #27ae60; font-weight: bold; background-color: #e8f8f5; padding: 5px 10px; border-radius: 6px; font-size: 12px;}
+.status-warning { color: #d63031; font-weight: bold; background-color: #fadedf; padding: 5px 10px; border-radius: 6px; font-size: 12px;}
+</style>
+<table class="class-summary-table">
+    <thead>
+        <tr>
+            <th>Nama Kelas</th>
+            <th>Dominasi Batin</th>
+            <th>Status Atensi</th>
+        </tr>
+    </thead>
+    <tbody>
+"""
+            for kelas, row in df_kelas.iterrows():
+                if row['Total'] == 0: continue
+
+                if row['Persen_Desolasi'] >= 30:
+                    status = '<span class="status-warning">Warning</span>'
+                else:
+                    status = '<span class="status-aman">Aman</span>'
+
+                if row['Konsolasi'] >= row['Desolasi']:
+                    dominasi = f"Konsolasi ({int(row['Persen_Konsolasi'])}%)"
+                else:
+                    dominasi = f"Desolasi ({int(row['Persen_Desolasi'])}%)"
+
+                html_table += f"""
+        <tr>
+            <td>{kelas}</td>
+            <td>{dominasi}</td>
+            <td>{status}</td>
+        </tr>
+                """
+
+            html_table += """
+    </tbody>
+</table>
+"""
+            st.markdown(html_table, unsafe_allow_html=True)
+
         else:
             st.info("Belum ada data refleksi yang masuk dalam sistem.")
             
