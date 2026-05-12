@@ -890,9 +890,11 @@ elif menu == "Database Management":
                 st.write("---")
                 col_del1, col_del2, col_del3 = st.columns([1,2,1])
                 with col_del2:
-                    if st.button("🗑️ Kosongkan Seluruh Data Siswa", use_container_width=True):
-                        pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]).to_csv(DB_SISWA, index=False)
-                        st.success("Data Siswa berhasil dikosongkan. Muat ulang (refresh) halaman.")
+                    with st.expander("🗑️ Kosongkan Seluruh Data Siswa"):
+                        st.warning("Apakah Anda yakin ingin menghapus seluruh data ini? Tindakan ini tidak dapat dibatalkan.")
+                        if st.button("Ya, Kosongkan Data Siswa", type="primary", use_container_width=True):
+                            pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]).to_csv(DB_SISWA, index=False)
+                            st.success("Data Siswa berhasil dikosongkan. Muat ulang (refresh) halaman.")
             else:
                 st.warning("Data Siswa masih kosong.")
         except Exception as e:
@@ -979,9 +981,11 @@ elif menu == "Database Management":
                 st.write("---")
                 col_del1, col_del2, col_del3 = st.columns([1,2,1])
                 with col_del2:
-                    if st.button("🗑️ Kosongkan Seluruh Data Guru", use_container_width=True):
-                        pd.DataFrame(columns=["Nama Guru", "Unit"]).to_csv(DB_GURU, index=False)
-                        st.success("Data Guru berhasil dikosongkan. Muat ulang (refresh) halaman.")
+                    with st.expander("🗑️ Kosongkan Seluruh Data Guru"):
+                        st.warning("Apakah Anda yakin ingin menghapus seluruh data ini? Tindakan ini tidak dapat dibatalkan.")
+                        if st.button("Ya, Kosongkan Data Guru", type="primary", use_container_width=True):
+                            pd.DataFrame(columns=["Nama Guru", "Unit"]).to_csv(DB_GURU, index=False)
+                            st.success("Data Guru berhasil dikosongkan. Muat ulang (refresh) halaman.")
             else:
                 st.warning("Data Guru masih kosong.")
         except Exception as e:
