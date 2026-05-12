@@ -28,13 +28,16 @@ except Exception as e:
     st.error(f"⚠️ Masalah koneksi: {e}")
 
 # 3. SETUP DATABASE LOKAL
-DB_MASTER = "master_siswa.csv"
+DB_SISWA = "master_siswa.csv"
+DB_GURU = "master_guru.csv"
 DB_BATIN = "database_batin.csv"
 
 DB_STAFF = "database_staff_counseling.csv"
 
-if not os.path.exists(DB_MASTER):
-    pd.DataFrame(columns=["Nama Siswa", "Nama Guru", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
+if not os.path.exists(DB_SISWA):
+    pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]).to_csv(DB_SISWA, index=False)
+if not os.path.exists(DB_GURU):
+    pd.DataFrame(columns=["Nama Guru", "Unit"]).to_csv(DB_GURU, index=False)
 if not os.path.exists(DB_BATIN):
     pd.DataFrame(columns=["Tanggal", "Unit", "Kelas", "Nama Siswa", "Status Awal", "Refleksi"]).to_csv(DB_BATIN, index=False)
 if not os.path.exists(DB_STAFF):
@@ -350,7 +353,7 @@ elif menu == "Data Input Center":
     st.write("Pusat pencatatan data refleksi harian. Pilih metode input yang sesuai dengan kebutuhan.")
     st.write("---")
     
-    df_master = pd.read_csv(DB_MASTER)
+    df_master_siswa = pd.read_csv(DB_SISWA)
     
     tab_manual, tab_excel = st.tabs(["📋 Batch Manual Entry (Per Kelas)", "📊 Bulk Excel Import"])
     
@@ -359,11 +362,9 @@ elif menu == "Data Input Center":
         st.markdown("### 📋 Batch Manual Entry by Class")
         st.markdown("<p style='color:#8ba1b5; font-size:14px; margin-top:-10px;'>Rapid entry for multiple students. Isi data sekaligus dan klik simpan di paling bawah.</p>", unsafe_allow_html=True)
         
-        if df_master.empty:
-            st.warning("⚠️ Master Data kosong. Silakan isi daftar nama di menu 'Database Management' terlebih dahulu.")
+        if df_master_siswa.empty:
+            st.warning("⚠️ Master Data Siswa kosong. Silakan isi daftar nama di menu 'Database Management' terlebih dahulu.")
         else:
-            # Filter khusus siswa
-            df_master_siswa = df_master[df_master['Nama Siswa'].notna() & (df_master['Nama Siswa'] != '')]
             
             col_tgl, col_unit, col_kelas = st.columns(3)
             with col_tgl:
@@ -607,12 +608,10 @@ elif menu == "Staff Tracker":
     st.write("Modul khusus pendampingan, konseling, dan evaluasi kesejahteraan (well-being) Guru & Staff.")
     st.write("---")
 
-    df_master = pd.read_csv(DB_MASTER)
-    # Filter cerdas: Ambil data yang Nama Guru-nya tidak kosong
-    df_staff = df_master[df_master['Nama Guru'].notna() & (df_master['Nama Guru'] != '')]
+    df_staff = pd.read_csv(DB_GURU)
 
     if df_staff.empty:
-        st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan kolom 'Nama Guru' diisi saat upload Excel.")
+        st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan Anda telah mengunggah data pada menu Database Management.")
     else:
         tab_input, tab_riwayat = st.tabs(["📝 Input Konseling", "🗂️ Riwayat & Laporan Akhir"])
 
@@ -738,154 +737,239 @@ elif menu == "Database Management":
     
     # --- KOTAK METRIK REKAPITULASI ---
     try:
-        df_master = pd.read_csv(DB_MASTER)
-        if not df_master.empty:
-            total_all = len(df_master)
+        df_siswa = pd.read_csv(DB_SISWA)
+        df_guru = pd.read_csv(DB_GURU)
+
+        jumlah_siswa = len(df_siswa) if not df_siswa.empty else 0
+        jumlah_guru = len(df_guru) if not df_guru.empty else 0
+        total_all = jumlah_siswa + jumlah_guru
+
+        rekap_siswa = df_siswa['Unit'].value_counts().to_dict() if not df_siswa.empty else {}
+
+        st.markdown("""
+        <style>
+        .rekap-container { display: flex; gap: 15px; margin-top: 20px; margin-bottom: 25px; flex-wrap: wrap; justify-content: space-between;}
+        .rekap-box { background-color: #f8f9fa; border-radius: 12px; padding: 20px 10px; text-align: center; border: 1px solid #e9ecef; flex: 1; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
+        .rekap-title { font-size: 11px; font-weight: 800; color: #8ba1b5; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px; line-height: 1.2;}
+        .rekap-val { font-size: 28px; font-weight: 900; color: #002244; }
+        </style>
+        """, unsafe_allow_html=True)
+
+        html_boxes = f'<div class="rekap-container">'
+        html_boxes += f'<div class="rekap-box"><div class="rekap-title">TOTAL TERDAFTAR</div><div class="rekap-val">{total_all}</div></div>'
+
+        for unit, jumlah in rekap_siswa.items():
+            html_boxes += f'<div class="rekap-box"><div class="rekap-title">UNIT {unit}</div><div class="rekap-val">{jumlah}</div></div>'
+
+        if jumlah_guru > 0:
+            html_boxes += f'<div class="rekap-box"><div class="rekap-title">TEACHER & STAFF</div><div class="rekap-val">{jumlah_guru}</div></div>'
             
-            df_staff = df_master[df_master['Nama Guru'].notna() & (df_master['Nama Guru'] != '')]
-            df_siswa = df_master[df_master['Nama Siswa'].notna() & (df_master['Nama Siswa'] != '')]
-            
-            rekap_siswa = df_siswa['Unit'].value_counts().to_dict()
-            jumlah_staff = len(df_staff)
-            
-            st.markdown("""
-            <style>
-            .rekap-container { display: flex; gap: 15px; margin-top: 20px; margin-bottom: 25px; flex-wrap: wrap; justify-content: space-between;}
-            .rekap-box { background-color: #f8f9fa; border-radius: 12px; padding: 20px 10px; text-align: center; border: 1px solid #e9ecef; flex: 1; min-width: 120px; box-shadow: 0 2px 4px rgba(0,0,0,0.02);}
-            .rekap-title { font-size: 11px; font-weight: 800; color: #8ba1b5; letter-spacing: 0.5px; text-transform: uppercase; margin-bottom: 8px; line-height: 1.2;}
-            .rekap-val { font-size: 28px; font-weight: 900; color: #002244; }
-            </style>
-            """, unsafe_allow_html=True)
-            
-            html_boxes = f'<div class="rekap-container">'
-            html_boxes += f'<div class="rekap-box"><div class="rekap-title">TOTAL TERDAFTAR</div><div class="rekap-val">{total_all}</div></div>'
-            
-            for unit, jumlah in rekap_siswa.items():
-                html_boxes += f'<div class="rekap-box"><div class="rekap-title">UNIT {unit}</div><div class="rekap-val">{jumlah}</div></div>'
-            
-            if jumlah_staff > 0:
-                html_boxes += f'<div class="rekap-box"><div class="rekap-title">TEACHER & STAFF</div><div class="rekap-val">{jumlah_staff}</div></div>'
-                
-            html_boxes += '</div>'
-            
-            st.markdown(html_boxes, unsafe_allow_html=True)
+        html_boxes += '</div>'
+
+        st.markdown(html_boxes, unsafe_allow_html=True)
     except Exception as e:
         pass
         
     st.write("---")
 
-    # --- BAGIAN 1: UPLOAD DENGAN KOLOM ---
-    col_up1, col_up2 = st.columns([1, 1])
-    with col_up1:
-        st.info("Pastikan format kolom Excel/CSV memuat: **Nama Siswa**, **Unit**, dan **Kelas**. *(Kosongkan kolom Kelas untuk Guru/Staff)*")
-        file_master = st.file_uploader("Unggah Dokumen (CSV/Excel)", type=['csv', 'xlsx'])
+    tab_siswa, tab_guru = st.tabs(["🎓 Master Siswa", "👨‍🏫 Master Guru/Staff"])
+
+    with tab_siswa:
+        # --- UPLOAD MASTER SISWA ---
+        col_up1, col_up2 = st.columns([1, 1])
+        with col_up1:
+            st.info("Pastikan format kolom Excel/CSV memuat: **Nama Siswa**, **Unit**, dan **Kelas**.")
+            file_siswa = st.file_uploader("Unggah Dokumen Siswa (CSV/Excel)", type=['csv', 'xlsx'], key="upload_siswa")
+
+        with col_up2:
+            if file_siswa:
+                try:
+                    if file_siswa.name.endswith('.csv'):
+                        df_upload_siswa = pd.read_csv(file_siswa)
+                    else:
+                        df_upload_siswa = pd.read_excel(file_siswa)
+
+                    if 'Nama Siswa' not in df_upload_siswa.columns: df_upload_siswa['Nama Siswa'] = None
+                    if 'Unit' not in df_upload_siswa.columns: df_upload_siswa['Unit'] = None
+                    if 'Kelas' not in df_upload_siswa.columns: df_upload_siswa['Kelas'] = None
+                    df_upload_siswa = df_upload_siswa[['Nama Siswa', 'Unit', 'Kelas']]
+
+                    st.warning("Pilih mode penyimpanan untuk Data Siswa:")
+                    col_btn1, col_btn2 = st.columns(2)
+
+                    with col_btn1:
+                        if st.button("➕ Tambah Data Siswa", use_container_width=True):
+                            df_lama_siswa = pd.read_csv(DB_SISWA)
+                            df_gabung_siswa = pd.concat([df_lama_siswa, df_upload_siswa], ignore_index=True)
+                            df_gabung_siswa.drop_duplicates(subset=['Nama Siswa', 'Unit', 'Kelas'], keep='last', inplace=True)
+                            df_gabung_siswa = df_gabung_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
+                            df_gabung_siswa.to_csv(DB_SISWA, index=False)
+                            st.success("✅ Data Siswa berhasil diperbarui!")
+
+                    with col_btn2:
+                        if st.button("🔄 Reset Data Siswa", use_container_width=True):
+                            df_upload_siswa = df_upload_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
+                            df_upload_siswa.to_csv(DB_SISWA, index=False)
+                            st.success("✅ Seluruh data siswa diganti dengan dokumen baru!")
+
+                except Exception as e:
+                    st.error(f"Gagal membaca dokumen: {e}")
+
+        st.write("---")
         
-    with col_up2:
-        if file_master:
-            try:
-                if file_master.name.endswith('.csv'):
-                    df_upload = pd.read_csv(file_master)
-                else:
-                    df_upload = pd.read_excel(file_master)
-                
-                st.warning("Pilih mode penyimpanan:")
-                col_btn1, col_btn2 = st.columns(2)
-                
-                with col_btn1:
-                    if st.button("➕ Tambah ke Data Lama", use_container_width=True):
-                        if 'Nama Guru' not in df_upload.columns: df_upload['Nama Guru'] = None
-                        if 'Nama Siswa' not in df_upload.columns: df_upload['Nama Siswa'] = None
-                        df_lama = pd.read_csv(DB_MASTER)
-                        df_gabung = pd.concat([df_lama, df_upload], ignore_index=True)
-                        df_gabung.drop_duplicates(subset=['Nama Siswa', 'Nama Guru', 'Unit', 'Kelas'], keep='last', inplace=True)
-                        df_gabung = df_gabung.sort_values(by=['Unit', 'Kelas', 'Nama Siswa', 'Nama Guru']).reset_index(drop=True)
-                        df_gabung.to_csv(DB_MASTER, index=False)
-                        st.success("✅ Data induk berhasil diperbarui!")
-                
-                with col_btn2:
-                    if st.button("🔄 Timpa Semua (Reset)", use_container_width=True):
-                        if 'Nama Guru' not in df_upload.columns: df_upload['Nama Guru'] = None
-                        if 'Nama Siswa' not in df_upload.columns: df_upload['Nama Siswa'] = None
-                        df_upload = df_upload.sort_values(by=['Unit', 'Kelas', 'Nama Siswa', 'Nama Guru']).reset_index(drop=True)
-                        df_upload.to_csv(DB_MASTER, index=False)
-                        st.success("✅ Seluruh data diganti dokumen baru!")
-                        
-            except Exception as e:
-                st.error(f"Gagal membaca dokumen: {e}")
-
-    st.write("---")
-    
-    # --- BAGIAN 2: UI DIREKTORI FILTER DINAMIS ---
-    st.markdown("### 🗂️ Direktori Master Data")
-    try:
-        df_master = pd.read_csv(DB_MASTER)
-        if not df_master.empty:
-            
-            # BARIS 1: MENU UNIT & SEARCH BAR
-            col_nav, col_search = st.columns([2.5, 1])
-            with col_nav:
-                list_unit = ["SEMUA UNIT"] + sorted([str(u).upper() for u in df_master['Unit'].dropna().unique().tolist()])
-                pilih_unit = option_menu(
-                    menu_title=None,
-                    options=list_unit,
-                    orientation="horizontal",
-                    styles={
-                        "container": {"padding": "5px", "background-color": "#ffffff", "border": "1px solid #e0e0e0", "border-radius": "10px", "margin":"0px"},
-                        "nav-link": {"font-size": "13px", "font-weight": "bold", "color": "#8ba1b5", "margin":"0px", "padding": "10px"},
-                        "nav-link-selected": {"background-color": "#002244", "color": "#ffffff", "border-radius": "8px"},
-                    },
-                    key="menu_unit_db"
-                )
-                
-            with col_search:
-                st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True) 
-                search_query = st.text_input("Pencarian", label_visibility="collapsed", placeholder="🔍 Search student name...")
-
-            # Logika Filter Unit
-            if pilih_unit == "SEMUA UNIT":
-                df_tampil = df_master
-            else:
-                df_tampil = df_master[df_master['Unit'].str.upper() == pilih_unit]
-                
-            # BARIS 2: MENU KELAS (Otomatis sembunyi jika Guru/Staff)
-            list_kelas = [k for k in df_tampil['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
-            if list_kelas and pilih_unit != "SEMUA UNIT":
-                col_teks, col_pills = st.columns([1, 6])
-                with col_teks:
-                    st.markdown("<p style='font-size:13px; font-weight:800; color:#8ba1b5; margin-top:20px; text-align:right; letter-spacing: 1px;'>FILTER KELAS:</p>", unsafe_allow_html=True)
-                with col_pills:
-                    opsi_kelas = ["Semua Kelas"] + sorted(list_kelas)
-                    pilih_kelas = option_menu(
+        # --- UI DIREKTORI MASTER SISWA ---
+        st.markdown("### 🗂️ Direktori Data Siswa")
+        try:
+            df_master_siswa = pd.read_csv(DB_SISWA)
+            if not df_master_siswa.empty:
+                col_nav, col_search = st.columns([2.5, 1])
+                with col_nav:
+                    list_unit = ["SEMUA UNIT"] + sorted([str(u).upper() for u in df_master_siswa['Unit'].dropna().unique().tolist()])
+                    pilih_unit = option_menu(
                         menu_title=None,
-                        options=opsi_kelas,
+                        options=list_unit,
                         orientation="horizontal",
                         styles={
-                            "container": {"padding": "0!important", "background-color": "transparent", "margin-top":"10px"},
-                            "nav-link": {"font-size": "13px", "color": "#002244", "background-color": "#ffffff", "border": "1px solid #e0e0e0", "border-radius": "20px", "margin": "0 5px", "padding": "5px 15px"},
-                            "nav-link-selected": {"background-color": "#dca235", "color": "#002244", "font-weight": "bold", "border": "none"},
+                            "container": {"padding": "5px", "background-color": "#ffffff", "border": "1px solid #e0e0e0", "border-radius": "10px", "margin":"0px"},
+                            "nav-link": {"font-size": "13px", "font-weight": "bold", "color": "#8ba1b5", "margin":"0px", "padding": "10px"},
+                            "nav-link-selected": {"background-color": "#002244", "color": "#ffffff", "border-radius": "8px"},
                         },
-                        key="menu_kelas_db"
+                        key="menu_unit_db_siswa"
                     )
-                    if pilih_kelas != "Semua Kelas":
-                        df_tampil = df_tampil[df_tampil['Kelas'] == pilih_kelas]
 
-            # Logika Search
-            if search_query:
-                df_tampil = df_tampil[df_tampil['Nama Siswa'].str.contains(search_query, case=False, na=False)]
+                with col_search:
+                    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+                    search_query = st.text_input("Pencarian Siswa", label_visibility="collapsed", placeholder="🔍 Search student name...", key="search_siswa")
 
-            # TAMPILKAN TABEL
-            st.markdown("<br>", unsafe_allow_html=True)
-            df_tampil = df_tampil.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
-            st.dataframe(df_tampil, use_container_width=True)
-            
-            # TOMBOL DELETE
-            st.write("---")
-            col_del1, col_del2, col_del3 = st.columns([1,2,1])
-            with col_del2:
-                if st.button("🗑️ Kosongkan Seluruh Direktori Master", use_container_width=True):
-                    pd.DataFrame(columns=["Nama Siswa", "Kelas", "Unit"]).to_csv(DB_MASTER, index=False)
-                    st.success("Direktori berhasil dikosongkan. Muat ulang (refresh) halaman.")
-        else:
-            st.warning("Direktori data masih kosong.")
-    except Exception as e:
-         st.warning("Direktori data masih kosong.")
+                if pilih_unit == "SEMUA UNIT":
+                    df_tampil_siswa = df_master_siswa
+                else:
+                    df_tampil_siswa = df_master_siswa[df_master_siswa['Unit'].str.upper() == pilih_unit]
+
+                list_kelas = [k for k in df_tampil_siswa['Kelas'].unique() if pd.notna(k) and str(k).strip() != '']
+                if list_kelas and pilih_unit != "SEMUA UNIT":
+                    col_teks, col_pills = st.columns([1, 6])
+                    with col_teks:
+                        st.markdown("<p style='font-size:13px; font-weight:800; color:#8ba1b5; margin-top:20px; text-align:right; letter-spacing: 1px;'>FILTER KELAS:</p>", unsafe_allow_html=True)
+                    with col_pills:
+                        opsi_kelas = ["Semua Kelas"] + sorted(list_kelas)
+                        pilih_kelas = option_menu(
+                            menu_title=None,
+                            options=opsi_kelas,
+                            orientation="horizontal",
+                            styles={
+                                "container": {"padding": "0!important", "background-color": "transparent", "margin-top":"10px"},
+                                "nav-link": {"font-size": "13px", "color": "#002244", "background-color": "#ffffff", "border": "1px solid #e0e0e0", "border-radius": "20px", "margin": "0 5px", "padding": "5px 15px"},
+                                "nav-link-selected": {"background-color": "#dca235", "color": "#002244", "font-weight": "bold", "border": "none"},
+                            },
+                            key="menu_kelas_db_siswa"
+                        )
+                        if pilih_kelas != "Semua Kelas":
+                            df_tampil_siswa = df_tampil_siswa[df_tampil_siswa['Kelas'] == pilih_kelas]
+
+                if search_query:
+                    df_tampil_siswa = df_tampil_siswa[df_tampil_siswa['Nama Siswa'].str.contains(search_query, case=False, na=False)]
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                df_tampil_siswa = df_tampil_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
+                st.dataframe(df_tampil_siswa, use_container_width=True)
+                
+                st.write("---")
+                col_del1, col_del2, col_del3 = st.columns([1,2,1])
+                with col_del2:
+                    if st.button("🗑️ Kosongkan Seluruh Data Siswa", use_container_width=True):
+                        pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]).to_csv(DB_SISWA, index=False)
+                        st.success("Data Siswa berhasil dikosongkan. Muat ulang (refresh) halaman.")
+            else:
+                st.warning("Data Siswa masih kosong.")
+        except Exception as e:
+             st.warning("Data Siswa masih kosong.")
+
+    with tab_guru:
+        # --- UPLOAD MASTER GURU ---
+        col_up1, col_up2 = st.columns([1, 1])
+        with col_up1:
+            st.info("Pastikan format kolom Excel/CSV memuat: **Nama Guru** dan **Unit**.")
+            file_guru = st.file_uploader("Unggah Dokumen Guru (CSV/Excel)", type=['csv', 'xlsx'], key="upload_guru")
+
+        with col_up2:
+            if file_guru:
+                try:
+                    if file_guru.name.endswith('.csv'):
+                        df_upload_guru = pd.read_csv(file_guru)
+                    else:
+                        df_upload_guru = pd.read_excel(file_guru)
+
+                    if 'Nama Guru' not in df_upload_guru.columns: df_upload_guru['Nama Guru'] = None
+                    if 'Unit' not in df_upload_guru.columns: df_upload_guru['Unit'] = None
+                    df_upload_guru = df_upload_guru[['Nama Guru', 'Unit']]
+
+                    st.warning("Pilih mode penyimpanan untuk Data Guru:")
+                    col_btn1, col_btn2 = st.columns(2)
+
+                    with col_btn1:
+                        if st.button("➕ Tambah Data Guru", use_container_width=True):
+                            df_lama_guru = pd.read_csv(DB_GURU)
+                            df_gabung_guru = pd.concat([df_lama_guru, df_upload_guru], ignore_index=True)
+                            df_gabung_guru.drop_duplicates(subset=['Nama Guru', 'Unit'], keep='last', inplace=True)
+                            df_gabung_guru = df_gabung_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
+                            df_gabung_guru.to_csv(DB_GURU, index=False)
+                            st.success("✅ Data Guru berhasil diperbarui!")
+
+                    with col_btn2:
+                        if st.button("🔄 Reset Data Guru", use_container_width=True):
+                            df_upload_guru = df_upload_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
+                            df_upload_guru.to_csv(DB_GURU, index=False)
+                            st.success("✅ Seluruh data guru diganti dengan dokumen baru!")
+
+                except Exception as e:
+                    st.error(f"Gagal membaca dokumen: {e}")
+
+        st.write("---")
+
+        # --- UI DIREKTORI MASTER GURU ---
+        st.markdown("### 🗂️ Direktori Data Guru")
+        try:
+            df_master_guru = pd.read_csv(DB_GURU)
+            if not df_master_guru.empty:
+                col_nav, col_search = st.columns([2.5, 1])
+                with col_nav:
+                    list_unit = ["SEMUA UNIT"] + sorted([str(u).upper() for u in df_master_guru['Unit'].dropna().unique().tolist()])
+                    pilih_unit = option_menu(
+                        menu_title=None,
+                        options=list_unit,
+                        orientation="horizontal",
+                        styles={
+                            "container": {"padding": "5px", "background-color": "#ffffff", "border": "1px solid #e0e0e0", "border-radius": "10px", "margin":"0px"},
+                            "nav-link": {"font-size": "13px", "font-weight": "bold", "color": "#8ba1b5", "margin":"0px", "padding": "10px"},
+                            "nav-link-selected": {"background-color": "#002244", "color": "#ffffff", "border-radius": "8px"},
+                        },
+                        key="menu_unit_db_guru"
+                    )
+
+                with col_search:
+                    st.markdown("<div style='margin-top: 10px;'></div>", unsafe_allow_html=True)
+                    search_query = st.text_input("Pencarian Guru", label_visibility="collapsed", placeholder="🔍 Search teacher name...", key="search_guru")
+
+                if pilih_unit == "SEMUA UNIT":
+                    df_tampil_guru = df_master_guru
+                else:
+                    df_tampil_guru = df_master_guru[df_master_guru['Unit'].str.upper() == pilih_unit]
+
+                if search_query:
+                    df_tampil_guru = df_tampil_guru[df_tampil_guru['Nama Guru'].str.contains(search_query, case=False, na=False)]
+
+                st.markdown("<br>", unsafe_allow_html=True)
+                df_tampil_guru = df_tampil_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
+                st.dataframe(df_tampil_guru, use_container_width=True)
+
+                st.write("---")
+                col_del1, col_del2, col_del3 = st.columns([1,2,1])
+                with col_del2:
+                    if st.button("🗑️ Kosongkan Seluruh Data Guru", use_container_width=True):
+                        pd.DataFrame(columns=["Nama Guru", "Unit"]).to_csv(DB_GURU, index=False)
+                        st.success("Data Guru berhasil dikosongkan. Muat ulang (refresh) halaman.")
+            else:
+                st.warning("Data Guru masih kosong.")
+        except Exception as e:
+             st.warning("Data Guru masih kosong.")
