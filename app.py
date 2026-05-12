@@ -46,18 +46,20 @@ if not os.path.exists(DB_STAFF):
 # 4. TEMA & WARNA 
 st.markdown("""
     <style>
-    .main { background-color: #f4f6f9; }
-    h1, h2, h3 { color: #002244; } 
-    .stButton>button { background-color: #002244; color: white; border-radius: 8px; border: none; }
-    .stButton>button:hover { background-color: #d4af37; color: #002244; }
-    [data-testid="stSidebar"] { background-color: #001f3f !important; }
+    .main { background-color: #FFFFFF; color: #000000; }
+    h1, h2, h3 { color: #0085FF; }
+    .stButton>button { background-color: #0085FF; color: white; border-radius: 8px; border: none; }
+    .stButton>button:hover { background-color: #FFB800; color: #000000; }
+    [data-testid="stSidebar"] { background-color: #f8f9fa !important; }
     [data-testid="stSidebarNav"] {display: none;}
-    [data-testid="stMetricValue"] { color: #d4af37; font-weight: bold; }
+    [data-testid="stMetricValue"] { color: #0085FF; font-weight: bold; }
+    p, span, div { color: #000000; }
     </style>
     """, unsafe_allow_html=True)
 
 # 5. SIDEBAR NAVIGASI
 with st.sidebar:
+    st.image('logo.png', use_container_width=True)
     st.markdown('<p style="color:#8ba1b5; font-size:12px; font-weight:700; letter-spacing:1.5px; margin-bottom: 0px; margin-left: 15px;">MAIN MENU</p>', unsafe_allow_html=True)
     menu = option_menu(
         menu_title=None,
@@ -66,9 +68,9 @@ with st.sidebar:
         default_index=1, 
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
-            "icon": {"color": "#e0e0e0", "font-size": "18px"}, 
-            "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "color": "#e0e0e0", "--hover-color": "#003366"},
-            "nav-link-selected": {"background-color": "#dca235", "color": "#001f3f", "font-weight": "bold", "border-radius": "8px"},
+            "icon": {"color": "#8ba1b5", "font-size": "18px"},
+            "nav-link": {"font-size": "16px", "text-align": "left", "margin":"5px", "color": "#000000", "--hover-color": "#f0f2f6"},
+            "nav-link-selected": {"background-color": "#FFB800", "color": "#000000", "font-weight": "bold", "border-radius": "8px"},
         }
     )
 
@@ -78,27 +80,27 @@ with st.sidebar:
 if menu == "Dashboard":
     st.markdown("""
 <style>
-.dash-title { color: #002244; font-size: 24px; font-weight: 800; margin-bottom: 0px; padding-bottom: 0px; }
+.dash-title { color: #0085FF; font-size: 24px; font-weight: 800; margin-bottom: 0px; padding-bottom: 0px; }
 .dash-subtitle { color: #8ba1b5; font-size: 14px; margin-top: 0px; padding-top: 0px; margin-bottom: 20px;}
 
 .kpi-card { background-color: #ffffff; border-radius: 10px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); height: 160px; display: flex; flex-direction: column; justify-content: center; margin-bottom: 5px;}
-.kpi-card-blue { border: 2px solid #002244; }
-.kpi-card-yellow { border: 2px solid #f39c12; }
-.kpi-card-cyan { border: 2px solid #00a8ff; }
+.kpi-card-blue { border: 2px solid #FFB800; }
+.kpi-card-yellow { border: 2px solid #FFB800; }
+.kpi-card-cyan { border: 2px solid #FFB800; }
 
-.kpi-label { font-size: 12px; font-weight: 700; color: #8ba1b5; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
-.kpi-val { font-size: 24px; font-weight: 800; color: #002244; margin-bottom: 5px; line-height: 1.2;}
-.kpi-val-yellow { color: #d35400; }
-.kpi-val-cyan { color: #0097e6; }
+.kpi-label { font-size: 12px; font-weight: 700; color: #000000; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 10px; }
+.kpi-val { font-size: 24px; font-weight: 800; color: #0085FF; margin-bottom: 5px; line-height: 1.2;}
+.kpi-val-yellow { color: #0085FF; }
+.kpi-val-cyan { color: #0085FF; }
 .kpi-desc { font-size: 13px; color: #8ba1b5; }
 
 .section-container { background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 20px; }
-.section-title { color: #002244; font-size: 18px; font-weight: 800; margin-bottom: 5px; }
+.section-title { color: #0085FF; font-size: 18px; font-weight: 800; margin-bottom: 5px; }
 .section-subtitle { color: #8ba1b5; font-size: 13px; margin-bottom: 20px; }
 
 .priority-item { border-bottom: 1px solid #f0f2f6; padding-bottom: 10px; margin-bottom: 10px; }
 .priority-item:last-child { border-bottom: none; }
-.p-name { font-weight: 700; color: #002244; font-size: 15px; margin-bottom: 2px; }
+.p-name { font-weight: 700; color: #0085FF; font-size: 15px; margin-bottom: 2px; }
 .p-class { font-size: 12px; color: #8ba1b5; }
 .badge-red { background-color: #ff767533; color: #d63031; padding: 3px 8px; border-radius: 12px; font-size: 10px; font-weight: 800; float: right; }
 .p-status { font-size: 12px; color: #d63031; font-weight: 600; margin-top: 5px;}
@@ -111,7 +113,7 @@ if menu == "Dashboard":
     # --- HEADER ---
     col_header1, col_header2 = st.columns([2.5, 1])
     with col_header1:
-        st.markdown('<p class="dash-title" style="color:#dca235; font-size:28px;">Berchmans Spirit Center</p>', unsafe_allow_html=True)
+        st.markdown('<p class="dash-title" style="color:#0085FF; font-size:28px;">Berchmans Spirit Center</p>', unsafe_allow_html=True)
         st.markdown('<p class="dash-subtitle">Analitik Pergerakan Batin & Evaluasi Pastoral</p>', unsafe_allow_html=True)
     with col_header2:
         st.markdown("<div style='margin-top: 5px;'></div>", unsafe_allow_html=True)
@@ -221,7 +223,7 @@ if menu == "Dashboard":
             with col_mid1:
                 st.markdown("""
 <div style="background-color: #ffffff; border-radius: 12px; padding: 20px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); margin-bottom: 10px;">
-    <div style="color: #002244; font-size: 18px; font-weight: 800; margin-bottom: 5px;">Trend Batin Per Unit</div>
+    <div style="color: #0085FF; font-size: 18px; font-weight: 800; margin-bottom: 5px;">Trend Batin Per Unit</div>
     <div style="color: #8ba1b5; font-size: 13px;">Perbandingan Tingkat Konsolasi vs Desolasi (Data Real-Time)</div>
 </div>
                 """, unsafe_allow_html=True)
@@ -234,7 +236,7 @@ if menu == "Dashboard":
                     color='Status Awal', 
                     orientation='h', 
                     barmode='group',
-                    color_discrete_map={'Konsolasi':'#002244', 'Desolasi':'#e2e8f0'} 
+                    color_discrete_map={'Konsolasi':'#0085FF', 'Desolasi':'#FFB800'}
                 )
                 fig_bar.update_layout(
                     margin=dict(t=10, b=0, l=0, r=0),
