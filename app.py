@@ -321,18 +321,9 @@ if menu == "Dashboard":
                 else:
                     dominasi = f"Desolasi ({int(row['Persen_Desolasi'])}%)"
 
-                html_table += f"""
-        <tr>
-            <td>{kelas}</td>
-            <td>{dominasi}</td>
-            <td>{status}</td>
-        </tr>
-                """
+                html_table += f"<tr><td>{kelas}</td><td>{dominasi}</td><td>{status}</td></tr>"
 
-            html_table += """
-    </tbody>
-</table>
-"""
+            html_table += "</tbody></table>"
             st.markdown(html_table, unsafe_allow_html=True)
 
         else:
