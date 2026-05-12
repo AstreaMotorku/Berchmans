@@ -1,3 +1,29 @@
-Nama Siswa,Unit,Kelas
-Siswa A,SMA,10A
-Siswa B,SMP,7A
+Nama Siswa,Unit,Kelas,Nama Guru
+H,SMA,10A,
+I,SMA,10A,
+K,SMA,10A,
+L,SMA,10A,
+M,SMA,10A,
+N,SMA,10A,
+O,SMA,10A,
+A,SMA,12A,
+B,SMA,12A,
+C,SMA,12A,
+D,SMA,12A,
+E,SMA,12A,
+F,SMA,12A,
+G,SMA,12A,
+,SMA,,Anton
+,SMA,,Budi
+,SMA,,Charles
+,SMA,,Delta
+,SMA,,Enigma
+,SMA,,Falco
+,SMA,,Gamma
+O,SMP,9B,
+P,SMP,9B,
+Q,SMP,9B,
+R,SMP,9B,
+S,SMP,9B,
+T,SMP,9B,
+U,SMP,9B,

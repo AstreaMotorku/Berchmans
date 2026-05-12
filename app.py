@@ -12,6 +12,30 @@ import io
 # 1. SETUP PAGE
 st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide", initial_sidebar_state="expanded")
 
+# --- AUTHENTICATION ---
+if 'logged_in' not in st.session_state:
+    st.session_state['logged_in'] = False
+
+if not st.session_state['logged_in']:
+    st.title("Login Sistem")
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        submit = st.form_submit_button("Login")
+
+        if submit:
+            try:
+                if username in st.secrets["passwords"] and st.secrets["passwords"][username] == password:
+                    st.session_state['logged_in'] = True
+                    st.success("Login berhasil!")
+                    time.sleep(0.5)
+                    st.rerun()
+                else:
+                    st.error("Username atau Password salah.")
+            except KeyError:
+                st.error("Konfigurasi st.secrets['passwords'] tidak ditemukan.")
+    st.stop()
+
 # 2. SETUP API & RADAR MODEL OTOMATIS
 try:
     genai.configure(api_key=os.environ["GEMINI_API_KEY"])
