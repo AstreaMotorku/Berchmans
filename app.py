@@ -63,7 +63,7 @@ def generate_pdf(df, user_name):
     else:
         pdf.cell(0, 8, "Tidak ada siswa dalam daftar atensi.", ln=True)
 
-    return pdf.output(dest='S').encode('latin1')
+    return pdf.output(dest='S')
 
 # 1. SETUP PAGE
 st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide", initial_sidebar_state="expanded")
