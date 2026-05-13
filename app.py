@@ -63,9 +63,20 @@ if not os.path.exists(DB_SISWA):
 if not os.path.exists(DB_GURU):
     pd.DataFrame(columns=["Nama Guru", "Unit"]).to_csv(DB_GURU, index=False)
 if not os.path.exists(DB_BATIN):
-    pd.DataFrame(columns=["Tanggal", "Unit", "Kelas", "Nama Siswa", "Status Awal", "Refleksi"]).to_csv(DB_BATIN, index=False)
+    pd.DataFrame(columns=["Tanggal", "Unit", "Kelas", "Nama Siswa", "Status Awal", "Refleksi", "Periode Arsip"]).to_csv(DB_BATIN, index=False)
+else:
+    df_temp = pd.read_csv(DB_BATIN)
+    if "Periode Arsip" not in df_temp.columns:
+        df_temp["Periode Arsip"] = "Aktif"
+        df_temp.to_csv(DB_BATIN, index=False)
+
 if not os.path.exists(DB_STAFF):
-    pd.DataFrame(columns=["Tanggal", "Unit", "Nama Staff", "Detail Konseling", "Analisis AI"]).to_csv(DB_STAFF, index=False)
+    pd.DataFrame(columns=["Tanggal", "Unit", "Nama Staff", "Detail Konseling", "Analisis AI", "Periode Arsip"]).to_csv(DB_STAFF, index=False)
+else:
+    df_temp = pd.read_csv(DB_STAFF)
+    if "Periode Arsip" not in df_temp.columns:
+        df_temp["Periode Arsip"] = "Aktif"
+        df_temp.to_csv(DB_STAFF, index=False)
 
 # 4. TEMA & WARNA 
 st.markdown("""
@@ -87,8 +98,8 @@ with st.sidebar:
     st.markdown('<p style="color:#8ba1b5; font-size:12px; font-weight:700; letter-spacing:1.5px; margin-bottom: 0px; margin-left: 15px;">MAIN MENU</p>', unsafe_allow_html=True)
     menu = option_menu(
         menu_title=None,
-        options=["Dashboard", "Data Input Center", "Student Insights", "Staff Tracker", "Database Management"],
-        icons=["grid", "server", "people", "briefcase", "hdd-stack"], 
+        options=["Dashboard", "Data Input Center", "Student Insights", "Staff Tracker", "Database Management", "Data Archive"],
+        icons=["grid", "server", "people", "briefcase", "hdd-stack", "archive"],
         default_index=1, 
         styles={
             "container": {"padding": "0!important", "background-color": "transparent"},
@@ -144,7 +155,8 @@ if menu == "Dashboard":
         st.text_input("Search", placeholder="🔍 Cari siswa...", label_visibility="collapsed")
 
     try:
-        df = pd.read_csv(DB_BATIN)
+        df_all = pd.read_csv(DB_BATIN)
+        df = df_all[df_all['Periode Arsip'] == 'Aktif']
         if not df.empty:
             total_data = len(df)
             jumlah_konsolasi = len(df[df['Status Awal'] == 'Konsolasi'])
@@ -463,7 +475,8 @@ elif menu == "Data Input Center":
                                     "Kelas": kelas_terpilih,
                                     "Nama Siswa": item["nama"],
                                     "Status Awal": item["batin"],
-                                    "Refleksi": item["refleksi"]
+                                    "Refleksi": item["refleksi"],
+                                    "Periode Arsip": "Aktif"
                                 })
                         
                         if data_to_save:
@@ -500,7 +513,8 @@ elif menu == "Data Input Center":
                             "Kelas": row.get('Kelas', '-'),
                             "Nama Siswa": row.get('Nama Lengkap', row.get('Nama Siswa', 'Anonim')),
                             "Status Awal": row.get('Dominasi Batin', 'Tidak Diketahui'),
-                            "Refleksi": row.get('Teks Refleksi', '')
+                            "Refleksi": row.get('Teks Refleksi', ''),
+                            "Periode Arsip": "Aktif"
                         })
                     
                     df_baru = pd.DataFrame(data_baru_list)
@@ -519,9 +533,11 @@ elif menu == "Student Insights":
     st.write("---")
     
     try:
-        df_batin = pd.read_csv(DB_BATIN)
+        df_batin_all = pd.read_csv(DB_BATIN)
+        df_batin = df_batin_all[df_batin_all['Periode Arsip'] == 'Aktif']
+
         if df_batin.empty:
-            st.warning("Database refleksi masih kosong.")
+            st.warning("Database refleksi aktif masih kosong.")
         else:
             tab1, tab2 = st.tabs(["👤 Rekap Analisis", "📋 Database Lengkap"])
             
@@ -689,7 +705,8 @@ elif menu == "Staff Tracker":
                                     "Unit": unit_staff,
                                     "Nama Staff": nama_staff,
                                     "Detail Konseling": detail_konseling,
-                                    "Analisis AI": hasil_ai
+                                    "Analisis AI": hasil_ai,
+                                    "Periode Arsip": "Aktif"
                                 }])
                                 df_staff_db = pd.concat([df_staff_db, data_baru], ignore_index=True)
                                 df_staff_db.to_csv(DB_STAFF, index=False)
@@ -705,9 +722,10 @@ elif menu == "Staff Tracker":
         with tab_riwayat:
             st.markdown("### 🗂️ Riwayat Konseling Staff")
             try:
-                df_staff_db = pd.read_csv(DB_STAFF)
+                df_staff_db_all = pd.read_csv(DB_STAFF)
+                df_staff_db = df_staff_db_all[df_staff_db_all['Periode Arsip'] == 'Aktif']
                 if df_staff_db.empty:
-                    st.info("Belum ada riwayat konseling.")
+                    st.info("Belum ada riwayat konseling aktif.")
                 else:
                     df_staff_db = df_staff_db.sort_values(by='Tanggal', ascending=False).reset_index(drop=True)
                     st.dataframe(df_staff_db[['Tanggal', 'Unit', 'Nama Staff', 'Detail Konseling']], use_container_width=True)
@@ -903,11 +921,23 @@ elif menu == "Database Management":
                 st.write("---")
                 col_del1, col_del2, col_del3 = st.columns([1,2,1])
                 with col_del2:
-                    with st.expander("🗑️ Kosongkan Seluruh Data Siswa"):
-                        st.warning("Apakah Anda yakin ingin menghapus seluruh data ini? Tindakan ini tidak dapat dibatalkan.")
-                        if st.button("Ya, Kosongkan Data Siswa", type="primary", use_container_width=True):
-                            pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]).to_csv(DB_SISWA, index=False)
-                            st.success("Data Siswa berhasil dikosongkan. Muat ulang (refresh) halaman.")
+                    with st.expander("🗑️ Arsipkan & Kosongkan Data Siswa"):
+                        st.warning("Tindakan ini akan mengosongkan Master Siswa dan mengarsipkan data refleksi siswa yang aktif.")
+                        periode_siswa = st.text_input("Masukkan Nama Periode Arsip (Contoh: 2026/2027 - Ganjil):", key="periode_siswa")
+                        if st.button("Ya, Arsipkan Data Siswa", type="primary", use_container_width=True):
+                            if periode_siswa.strip() == "":
+                                st.error("Nama periode arsip tidak boleh kosong!")
+                            else:
+                                # Arsipkan data batin
+                                try:
+                                    df_b = pd.read_csv(DB_BATIN)
+                                    df_b.loc[df_b['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_siswa
+                                    df_b.to_csv(DB_BATIN, index=False)
+                                except:
+                                    pass
+
+                                pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]).to_csv(DB_SISWA, index=False)
+                                st.success(f"Data Siswa berhasil dikosongkan dan direkam dalam arsip '{periode_siswa}'. Muat ulang (refresh) halaman.")
             else:
                 st.warning("Data Siswa masih kosong.")
         except Exception as e:
@@ -994,12 +1024,91 @@ elif menu == "Database Management":
                 st.write("---")
                 col_del1, col_del2, col_del3 = st.columns([1,2,1])
                 with col_del2:
-                    with st.expander("🗑️ Kosongkan Seluruh Data Guru"):
-                        st.warning("Apakah Anda yakin ingin menghapus seluruh data ini? Tindakan ini tidak dapat dibatalkan.")
-                        if st.button("Ya, Kosongkan Data Guru", type="primary", use_container_width=True):
-                            pd.DataFrame(columns=["Nama Guru", "Unit"]).to_csv(DB_GURU, index=False)
-                            st.success("Data Guru berhasil dikosongkan. Muat ulang (refresh) halaman.")
+                    with st.expander("🗑️ Arsipkan & Kosongkan Data Guru"):
+                        st.warning("Tindakan ini akan mengosongkan Master Guru dan mengarsipkan data konseling staff yang aktif.")
+                        periode_guru = st.text_input("Masukkan Nama Periode Arsip (Contoh: 2026/2027 - Ganjil):", key="periode_guru")
+                        if st.button("Ya, Arsipkan Data Guru", type="primary", use_container_width=True):
+                            if periode_guru.strip() == "":
+                                st.error("Nama periode arsip tidak boleh kosong!")
+                            else:
+                                # Arsipkan data staff
+                                try:
+                                    df_s = pd.read_csv(DB_STAFF)
+                                    df_s.loc[df_s['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_guru
+                                    df_s.to_csv(DB_STAFF, index=False)
+                                except:
+                                    pass
+
+                                pd.DataFrame(columns=["Nama Guru", "Unit"]).to_csv(DB_GURU, index=False)
+                                st.success(f"Data Guru berhasil dikosongkan dan direkam dalam arsip '{periode_guru}'. Muat ulang (refresh) halaman.")
             else:
                 st.warning("Data Guru masih kosong.")
         except Exception as e:
              st.warning("Data Guru masih kosong.")
+
+# ==========================================
+# HALAMAN 6: DATA ARCHIVE
+# ==========================================
+elif menu == "Data Archive":
+    st.title("Data Archive 🗄️")
+    st.write("Akses riwayat data refleksi dan konseling yang telah diarsipkan dari periode-periode sebelumnya.")
+    st.write("---")
+
+    try:
+        df_batin_all = pd.read_csv(DB_BATIN)
+        df_staff_all = pd.read_csv(DB_STAFF)
+
+        arsip_batin = df_batin_all[df_batin_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
+        arsip_staff = df_staff_all[df_staff_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
+
+        semua_arsip = sorted(list(set(arsip_batin + arsip_staff)), reverse=True)
+
+        if not semua_arsip:
+            st.info("Belum ada data yang diarsipkan.")
+        else:
+            periode_pilih = st.selectbox("Pilih Periode Arsip:", semua_arsip)
+            st.write("---")
+
+            tab_arsip_siswa, tab_arsip_guru = st.tabs(["🎓 Arsip Refleksi Siswa", "👨‍🏫 Arsip Konseling Staff"])
+
+            with tab_arsip_siswa:
+                st.markdown(f"### Riwayat Refleksi Siswa - Periode: {periode_pilih}")
+                df_arsip_siswa = df_batin_all[df_batin_all['Periode Arsip'] == periode_pilih]
+
+                if df_arsip_siswa.empty:
+                    st.info(f"Tidak ada data refleksi siswa untuk periode {periode_pilih}.")
+                else:
+                    col_unit_arsip, col_kelas_arsip = st.columns(2)
+                    with col_unit_arsip:
+                        unit_arsip = st.selectbox("Filter Unit", ["Semua Unit"] + sorted(df_arsip_siswa['Unit'].dropna().unique().tolist()), key="unit_arsip_s")
+
+                    df_tampil_arsip_siswa = df_arsip_siswa
+                    if unit_arsip != "Semua Unit":
+                        df_tampil_arsip_siswa = df_arsip_siswa[df_arsip_siswa['Unit'] == unit_arsip]
+
+                    with col_kelas_arsip:
+                        list_kelas_arsip = ["Semua Kelas"] + sorted(df_tampil_arsip_siswa['Kelas'].dropna().unique().tolist())
+                        kelas_arsip = st.selectbox("Filter Kelas", list_kelas_arsip, key="kelas_arsip_s")
+
+                    if kelas_arsip != "Semua Kelas":
+                        df_tampil_arsip_siswa = df_tampil_arsip_siswa[df_tampil_arsip_siswa['Kelas'] == kelas_arsip]
+
+                    st.dataframe(df_tampil_arsip_siswa.sort_values(by=['Tanggal', 'Nama Siswa'], ascending=[False, True]), use_container_width=True)
+
+            with tab_arsip_guru:
+                st.markdown(f"### Riwayat Konseling Staff - Periode: {periode_pilih}")
+                df_arsip_staff = df_staff_all[df_staff_all['Periode Arsip'] == periode_pilih]
+
+                if df_arsip_staff.empty:
+                    st.info(f"Tidak ada data konseling staff untuk periode {periode_pilih}.")
+                else:
+                    unit_arsip_g = st.selectbox("Filter Unit", ["Semua Unit"] + sorted(df_arsip_staff['Unit'].dropna().unique().tolist()), key="unit_arsip_g")
+
+                    df_tampil_arsip_staff = df_arsip_staff
+                    if unit_arsip_g != "Semua Unit":
+                        df_tampil_arsip_staff = df_arsip_staff[df_arsip_staff['Unit'] == unit_arsip_g]
+
+                    st.dataframe(df_tampil_arsip_staff.sort_values(by=['Tanggal', 'Nama Staff'], ascending=[False, True]), use_container_width=True)
+
+    except Exception as e:
+        st.error(f"Gagal memuat arsip: {e}")
