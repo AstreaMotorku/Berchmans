@@ -8,6 +8,62 @@ import time
 from datetime import datetime
 from docx import Document
 import io
+from fpdf import FPDF
+import tempfile
+
+class PDFReport(FPDF):
+    def header(self):
+        try:
+            self.image('logo.png', 10, 8, 33)
+        except:
+            pass
+        self.set_font('Arial', 'B', 15)
+        self.cell(40)
+        self.cell(110, 10, 'Laporan Perkembangan Batin Siswa', 0, 1, 'C')
+        self.set_font('Arial', 'I', 10)
+        self.cell(40)
+        self.cell(110, 10, 'Berchmans Spirit Center', 0, 1, 'C')
+        self.ln(20)
+
+    def footer(self):
+        self.set_y(-15)
+        self.set_font('Arial', 'I', 8)
+        self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
+
+def generate_pdf(df, user_name):
+    pdf = PDFReport()
+    pdf.add_page()
+    pdf.set_font("Arial", size=12)
+
+    pdf.cell(0, 10, f"Tanggal Laporan: {datetime.now().strftime('%d-%m-%Y')}", ln=True)
+    pdf.cell(0, 10, f"Diunduh oleh: {user_name}", ln=True)
+    pdf.ln(10)
+
+    total_data = len(df)
+    jumlah_konsolasi = len(df[df['Status Awal'] == 'Konsolasi'])
+    persen_konsolasi = int((jumlah_konsolasi / total_data) * 100) if total_data > 0 else 0
+    persen_desolasi = 100 - persen_konsolasi if total_data > 0 else 0
+
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "Ringkasan Statistik", ln=True)
+    pdf.set_font("Arial", size=12)
+    pdf.cell(0, 10, f"Total Data: {total_data}", ln=True)
+    pdf.cell(0, 10, f"Konsolasi: {persen_konsolasi}%", ln=True)
+    pdf.cell(0, 10, f"Desolasi: {persen_desolasi}%", ln=True)
+    pdf.ln(10)
+
+    pdf.set_font("Arial", 'B', 14)
+    pdf.cell(0, 10, "Priority List (Memerlukan Atensi Khusus)", ln=True)
+    pdf.set_font("Arial", size=12)
+
+    df_desolasi_terakhir = df[df['Status Awal'] == 'Desolasi'].tail(15).iloc[::-1]
+    if not df_desolasi_terakhir.empty:
+        for idx, row in df_desolasi_terakhir.iterrows():
+            pdf.cell(0, 8, f"- {row['Nama Siswa']} ({row['Unit']} - {row['Kelas']}) pada {row['Tanggal']}", ln=True)
+    else:
+        pdf.cell(0, 8, "Tidak ada siswa dalam daftar atensi.", ln=True)
+
+    return pdf.output(dest='S').encode('latin1')
 
 # 1. SETUP PAGE
 st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide", initial_sidebar_state="expanded")
@@ -27,6 +83,7 @@ if not st.session_state['logged_in']:
             try:
                 if username in st.secrets["passwords"] and st.secrets["passwords"][username] == password:
                     st.session_state['logged_in'] = True
+                    st.session_state['username'] = username
                     st.success("Login berhasil!")
                     time.sleep(0.5)
                     st.rerun()
@@ -158,6 +215,29 @@ if menu == "Dashboard":
         df_all = pd.read_csv(DB_BATIN)
         df = df_all[df_all['Periode Arsip'] == 'Aktif']
         if not df.empty:
+            # --- EXPORT REPORTS ---
+            col_ex1, col_ex2, col_ex3 = st.columns([6, 2, 2])
+            with col_ex2:
+                excel_buffer = io.BytesIO()
+                with pd.ExcelWriter(excel_buffer, engine='openpyxl') as writer:
+                    df.to_excel(writer, index=False, sheet_name='Dashboard_Data')
+                st.download_button(
+                    label="📊 Export Excel",
+                    data=excel_buffer.getvalue(),
+                    file_name=f"Dashboard_Report_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            with col_ex3:
+                pdf_bytes = generate_pdf(df, st.session_state.get('username', 'Admin'))
+                st.download_button(
+                    label="📄 Export PDF Summary",
+                    data=pdf_bytes,
+                    file_name=f"Summary_Batin_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+
             total_data = len(df)
             jumlah_konsolasi = len(df[df['Status Awal'] == 'Konsolasi'])
             persen_konsolasi = int((jumlah_konsolasi / total_data) * 100) if total_data > 0 else 0
@@ -582,7 +662,30 @@ elif menu == "Student Insights":
                     st.info(f"Belum ada data refleksi untuk {target_analisis}.")
                 else:
                     df_target_terakhir = df_target.tail(50)
-                    st.markdown(f"**Riwayat Refleksi: {target_analisis}**")
+
+                    col_insight1, col_insight2, col_insight3 = st.columns([6, 2, 2])
+                    with col_insight1:
+                        st.markdown(f"**Riwayat Refleksi: {target_analisis}**")
+                    with col_insight2:
+                        excel_buffer_insight = io.BytesIO()
+                        with pd.ExcelWriter(excel_buffer_insight, engine='openpyxl') as writer:
+                            df_target_terakhir.to_excel(writer, index=False, sheet_name='Insight_Data')
+                        st.download_button(
+                            label="📊 Export Excel",
+                            data=excel_buffer_insight.getvalue(),
+                            file_name=f"Insight_{target_analisis.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                            use_container_width=True
+                        )
+                    with col_insight3:
+                        pdf_bytes_insight = generate_pdf(df_target_terakhir, st.session_state.get('username', 'Admin'))
+                        st.download_button(
+                            label="📄 Export PDF Summary",
+                            data=pdf_bytes_insight,
+                            file_name=f"Summary_{target_analisis.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
+                            mime="application/pdf",
+                            use_container_width=True
+                        )
                     st.dataframe(df_target_terakhir[['Tanggal', 'Kelas', 'Nama Siswa', 'Status Awal', 'Refleksi']], use_container_width=True)
                     
                     if st.button(f"🧠 Buat Rekap Analisis untuk {target_analisis}"):
