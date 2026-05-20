@@ -1,0 +1,8 @@
+streamlit
+streamlit-option-menu
+google-generativeai
+pandas
+plotly
+python-docx
+openpyxl
+fpdf2
