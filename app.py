@@ -10,6 +10,7 @@ from docx import Document
 import io
 from fpdf import FPDF
 import tempfile
+from streamlit_gsheets import GSheetsConnection
 
 class PDFReport(FPDF):
     def header(self):
@@ -63,7 +64,7 @@ def generate_pdf(df, user_name):
     else:
         pdf.cell(0, 8, "Tidak ada siswa dalam daftar atensi.", ln=True)
 
-    return bytes(pdf.output())
+    return pdf.output(dest='S')
 
 # 1. SETUP PAGE
 st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide", initial_sidebar_state="expanded")
@@ -108,32 +109,11 @@ try:
 except Exception as e:
     st.error(f"⚠️ Masalah koneksi: {e}")
 
-# 3. SETUP DATABASE LOKAL
-DB_SISWA = "master_siswa.csv"
-DB_GURU = "master_guru.csv"
-DB_BATIN = "database_batin.csv"
-
-DB_STAFF = "database_staff_counseling.csv"
-
-if not os.path.exists(DB_SISWA):
-    pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]).to_csv(DB_SISWA, index=False)
-if not os.path.exists(DB_GURU):
-    pd.DataFrame(columns=["Nama Guru", "Unit"]).to_csv(DB_GURU, index=False)
-if not os.path.exists(DB_BATIN):
-    pd.DataFrame(columns=["Tanggal", "Unit", "Kelas", "Nama Siswa", "Status Awal", "Refleksi", "Periode Arsip"]).to_csv(DB_BATIN, index=False)
-else:
-    df_temp = pd.read_csv(DB_BATIN)
-    if "Periode Arsip" not in df_temp.columns:
-        df_temp["Periode Arsip"] = "Aktif"
-        df_temp.to_csv(DB_BATIN, index=False)
-
-if not os.path.exists(DB_STAFF):
-    pd.DataFrame(columns=["Tanggal", "Unit", "Nama Staff", "Detail Konseling", "Analisis AI", "Periode Arsip"]).to_csv(DB_STAFF, index=False)
-else:
-    df_temp = pd.read_csv(DB_STAFF)
-    if "Periode Arsip" not in df_temp.columns:
-        df_temp["Periode Arsip"] = "Aktif"
-        df_temp.to_csv(DB_STAFF, index=False)
+# 3. SETUP DATABASE GOOGLE SHEETS
+try:
+    conn = st.connection("gsheets", type=GSheetsConnection)
+except Exception as e:
+    st.error(f"Gagal menghubungkan ke Google Sheets: {e}. Pastikan 'spreadsheet_url' disetting di st.secrets.")
 
 # 4. TEMA & WARNA 
 st.markdown("""
@@ -212,7 +192,7 @@ if menu == "Dashboard":
         st.text_input("Search", placeholder="🔍 Cari siswa...", label_visibility="collapsed")
 
     try:
-        df_all = pd.read_csv(DB_BATIN)
+        df_all = conn.read(worksheet="Data Refleksi", ttl=0)
         df = df_all[df_all['Periode Arsip'] == 'Aktif']
         if not df.empty:
             # --- EXPORT REPORTS ---
@@ -390,71 +370,58 @@ if menu == "Dashboard":
                     
                 st.markdown('<a href="#" class="view-all-btn">Lihat Semua di Menu Insight ></a>', unsafe_allow_html=True)
 
-            # --- AI SUMMARY PER CLASS ---
             st.markdown("<br>", unsafe_allow_html=True)
 
+            # --- AI SUMMARY PER CLASS TABLE ---
+            st.markdown("""
+<div class="section-container" style="padding-bottom: 20px; margin-top: 10px;">
+    <div class="section-title">AI Summary per Class</div>
+    <div class="section-subtitle">Rekapitulasi Dominasi Batin dan Status Atensi Berdasarkan Kelas</div>
+</div>
+            """, unsafe_allow_html=True)
+
             df_kelas = df.groupby(['Kelas', 'Status Awal']).size().unstack(fill_value=0)
-            if 'Desolasi' not in df_kelas.columns:
-                df_kelas['Desolasi'] = 0
-            if 'Konsolasi' not in df_kelas.columns:
-                df_kelas['Konsolasi'] = 0
+            if 'Konsolasi' not in df_kelas.columns: df_kelas['Konsolasi'] = 0
+            if 'Desolasi' not in df_kelas.columns: df_kelas['Desolasi'] = 0
 
             df_kelas['Total'] = df_kelas['Konsolasi'] + df_kelas['Desolasi']
             df_kelas['Persen_Desolasi'] = (df_kelas['Desolasi'] / df_kelas['Total']) * 100
             df_kelas['Persen_Konsolasi'] = (df_kelas['Konsolasi'] / df_kelas['Total']) * 100
 
-            html_table = (
-                '<div class="section-container">\n'
-                '    <div class="section-title">AI Summary per Class</div>\n'
-                '    <div class="section-subtitle">Rekapitulasi Dominasi Batin dan Status Atensi berdasarkan Kelas</div>\n'
-                '    <style>\n'
-                '    .summary-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-family: sans-serif; }\n'
-                '    .summary-table th { background-color: #002244; color: white; padding: 12px; text-align: left; font-size: 14px; border-radius: 4px 4px 0 0; }\n'
-                '    .summary-table td { padding: 12px; border-bottom: 1px solid #f0f2f6; font-size: 14px; color: #002244; }\n'
-                '    .summary-table tr:hover { background-color: #f4f6f9; }\n'
-                '    .status-aman { background-color: #e3fcec; color: #27ae60; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }\n'
-                '    .status-warning { background-color: #ff767533; color: #d63031; padding: 4px 8px; border-radius: 12px; font-size: 12px; font-weight: bold; }\n'
-                '    .dom-konsolasi { color: #002244; font-weight: bold; }\n'
-                '    .dom-desolasi { color: #d63031; font-weight: bold; }\n'
-                '    </style>\n'
-                '    <table class="summary-table">\n'
-                '        <thead>\n'
-                '            <tr>\n'
-                '                <th>Nama Kelas</th>\n'
-                '                <th>Dominasi Batin</th>\n'
-                '                <th>Status Atensi</th>\n'
-                '            </tr>\n'
-                '        </thead>\n'
-                '        <tbody>\n'
-            )
-
+            html_table = """
+<style>
+.class-summary-table { width: 100%; border-collapse: collapse; margin-top: -10px; margin-bottom: 20px; }
+.class-summary-table th { background-color: #f4f6f9; color: #8ba1b5; font-size: 13px; text-transform: uppercase; padding: 12px; text-align: left; border-bottom: 2px solid #e0e0e0; }
+.class-summary-table td { padding: 12px; border-bottom: 1px solid #f0f2f6; color: #002244; font-size: 14px; font-weight: 500; }
+.status-aman { color: #27ae60; font-weight: bold; background-color: #e8f8f5; padding: 5px 10px; border-radius: 6px; font-size: 12px;}
+.status-warning { color: #d63031; font-weight: bold; background-color: #fadedf; padding: 5px 10px; border-radius: 6px; font-size: 12px;}
+</style>
+<table class="class-summary-table">
+    <thead>
+        <tr>
+            <th>Nama Kelas</th>
+            <th>Dominasi Batin</th>
+            <th>Status Atensi</th>
+        </tr>
+    </thead>
+    <tbody>
+"""
             for kelas, row in df_kelas.iterrows():
-                if row['Total'] == 0:
-                    continue
+                if row['Total'] == 0: continue
 
-                persen_des = row['Persen_Desolasi']
-                persen_kon = row['Persen_Konsolasi']
-
-                if persen_des > persen_kon:
-                    dominasi = f"<span class='dom-desolasi'>Desolasi ({int(persen_des)}%)</span>"
-                elif persen_kon > persen_des:
-                    dominasi = f"<span class='dom-konsolasi'>Konsolasi ({int(persen_kon)}%)</span>"
+                if row['Persen_Desolasi'] >= 30:
+                    status = '<span class="status-warning">Warning</span>'
                 else:
-                    dominasi = "<span style='color: #8ba1b5; font-weight: bold;'>Seimbang (50%)</span>"
+                    status = '<span class="status-aman">Aman</span>'
 
-                if persen_des >= 30:
-                    status = "<span class='status-warning'>⚠️ Warning</span>"
+                if row['Konsolasi'] >= row['Desolasi']:
+                    dominasi = f"Konsolasi ({int(row['Persen_Konsolasi'])}%)"
                 else:
-                    status = "<span class='status-aman'>✅ Aman</span>"
+                    dominasi = f"Desolasi ({int(row['Persen_Desolasi'])}%)"
 
-                html_table += f"<tr><td style='font-weight: bold;'>{kelas}</td><td>{dominasi}</td><td>{status}</td></tr>\n"
+                html_table += f"<tr><td>{kelas}</td><td>{dominasi}</td><td>{status}</td></tr>"
 
-            html_table += (
-                '        </tbody>\n'
-                '    </table>\n'
-                '</div>\n'
-            )
-
+            html_table += "</tbody></table>"
             st.markdown(html_table, unsafe_allow_html=True)
 
         else:
@@ -471,7 +438,7 @@ elif menu == "Data Input Center":
     st.write("Pusat pencatatan data refleksi harian. Pilih metode input yang sesuai dengan kebutuhan.")
     st.write("---")
     
-    df_master_siswa = pd.read_csv(DB_SISWA)
+    df_master_siswa = conn.read(worksheet="Master Siswa", ttl=0)
     
     tab_manual, tab_excel = st.tabs(["📋 Batch Manual Entry (Per Kelas)", "📊 Bulk Excel Import"])
     
@@ -560,10 +527,10 @@ elif menu == "Data Input Center":
                                 })
                         
                         if data_to_save:
-                            df_batin = pd.read_csv(DB_BATIN)
+                            df_batin = conn.read(worksheet="Data Refleksi", ttl=0)
                             df_baru = pd.DataFrame(data_to_save)
                             df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
-                            df_batin.to_csv(DB_BATIN, index=False)
+                            conn.update(worksheet="Data Refleksi", data=df_batin)
                             st.success(f"✅ {len(data_to_save)} data refleksi siswa dari kelas {kelas_terpilih} berhasil disimpan!")
                         else:
                             st.warning("⚠️ Tidak ada data yang disimpan. Pastikan Anda memilih Konsolasi/Desolasi minimal untuk 1 siswa.")
@@ -582,7 +549,7 @@ elif menu == "Data Input Center":
                     else:
                         df_bulk = pd.read_excel(file_refleksi)
                     
-                    df_batin = pd.read_csv(DB_BATIN)
+                    df_batin = conn.read(worksheet="Data Refleksi", ttl=0)
                     data_baru_list = []
                     
                     for i, row in df_bulk.iterrows():
@@ -599,7 +566,7 @@ elif menu == "Data Input Center":
                     
                     df_baru = pd.DataFrame(data_baru_list)
                     df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
-                    df_batin.to_csv(DB_BATIN, index=False)
+                    conn.update(worksheet="Data Refleksi", data=df_batin)
                     st.success(f"✅ {len(df_bulk)} baris data berhasil dibaca dan disimpan!")
                 except Exception as e:
                     st.error(f"Gagal memproses file: {e}. Pastikan format kolom sesuai dengan standar sistem.")
@@ -613,7 +580,7 @@ elif menu == "Student Insights":
     st.write("---")
     
     try:
-        df_batin_all = pd.read_csv(DB_BATIN)
+        df_batin_all = conn.read(worksheet="Data Refleksi", ttl=0)
         df_batin = df_batin_all[df_batin_all['Periode Arsip'] == 'Aktif']
 
         if df_batin.empty:
@@ -756,7 +723,7 @@ elif menu == "Staff Tracker":
     st.write("Modul khusus pendampingan, konseling, dan evaluasi kesejahteraan (well-being) Guru & Staff.")
     st.write("---")
 
-    df_staff = pd.read_csv(DB_GURU)
+    df_staff = conn.read(worksheet="Master Guru", ttl=0)
 
     if df_staff.empty:
         st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan Anda telah mengunggah data pada menu Database Management.")
@@ -805,7 +772,7 @@ elif menu == "Staff Tracker":
                                 response = model.generate_content(prompt)
                                 hasil_ai = response.text
 
-                                df_staff_db = pd.read_csv(DB_STAFF)
+                                df_staff_db = conn.read(worksheet="Data Staff", ttl=0)
                                 data_baru = pd.DataFrame([{
                                     "Tanggal": tanggal_konseling.strftime("%Y-%m-%d"),
                                     "Unit": unit_staff,
@@ -815,7 +782,7 @@ elif menu == "Staff Tracker":
                                     "Periode Arsip": "Aktif"
                                 }])
                                 df_staff_db = pd.concat([df_staff_db, data_baru], ignore_index=True)
-                                df_staff_db.to_csv(DB_STAFF, index=False)
+                                conn.update(worksheet="Data Staff", data=df_staff_db)
 
                                 st.success(f"✅ Data konseling {nama_staff} berhasil disimpan dan dianalisis!")
                                 st.info(hasil_ai)
@@ -828,7 +795,7 @@ elif menu == "Staff Tracker":
         with tab_riwayat:
             st.markdown("### 🗂️ Riwayat Konseling Staff")
             try:
-                df_staff_db_all = pd.read_csv(DB_STAFF)
+                df_staff_db_all = conn.read(worksheet="Data Staff", ttl=0)
                 df_staff_db = df_staff_db_all[df_staff_db_all['Periode Arsip'] == 'Aktif']
                 if df_staff_db.empty:
                     st.info("Belum ada riwayat konseling aktif.")
@@ -889,8 +856,8 @@ elif menu == "Database Management":
     
     # --- KOTAK METRIK REKAPITULASI ---
     try:
-        df_siswa = pd.read_csv(DB_SISWA)
-        df_guru = pd.read_csv(DB_GURU)
+        df_siswa = conn.read(worksheet="Master Siswa", ttl=0)
+        df_guru = conn.read(worksheet="Master Guru", ttl=0)
 
         jumlah_siswa = len(df_siswa) if not df_siswa.empty else 0
         jumlah_guru = len(df_guru) if not df_guru.empty else 0
@@ -951,17 +918,17 @@ elif menu == "Database Management":
 
                     with col_btn1:
                         if st.button("➕ Tambah Data Siswa", use_container_width=True):
-                            df_lama_siswa = pd.read_csv(DB_SISWA)
+                            df_lama_siswa = conn.read(worksheet="Master Siswa", ttl=0)
                             df_gabung_siswa = pd.concat([df_lama_siswa, df_upload_siswa], ignore_index=True)
                             df_gabung_siswa.drop_duplicates(subset=['Nama Siswa', 'Unit', 'Kelas'], keep='last', inplace=True)
                             df_gabung_siswa = df_gabung_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
-                            df_gabung_siswa.to_csv(DB_SISWA, index=False)
+                            conn.update(worksheet="Master Siswa", data=df_gabung_siswa)
                             st.success("✅ Data Siswa berhasil diperbarui!")
 
                     with col_btn2:
                         if st.button("🔄 Reset Data Siswa", use_container_width=True):
                             df_upload_siswa = df_upload_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
-                            df_upload_siswa.to_csv(DB_SISWA, index=False)
+                            conn.update(worksheet="Master Siswa", data=df_upload_siswa)
                             st.success("✅ Seluruh data siswa diganti dengan dokumen baru!")
 
                 except Exception as e:
@@ -972,7 +939,7 @@ elif menu == "Database Management":
         # --- UI DIREKTORI MASTER SISWA ---
         st.markdown("### 🗂️ Direktori Data Siswa")
         try:
-            df_master_siswa = pd.read_csv(DB_SISWA)
+            df_master_siswa = conn.read(worksheet="Master Siswa", ttl=0)
             if not df_master_siswa.empty:
                 col_nav, col_search = st.columns([2.5, 1])
                 with col_nav:
@@ -1039,13 +1006,13 @@ elif menu == "Database Management":
                             else:
                                 # Arsipkan data batin
                                 try:
-                                    df_b = pd.read_csv(DB_BATIN)
+                                    df_b = conn.read(worksheet="Data Refleksi", ttl=0)
                                     df_b.loc[df_b['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_siswa
-                                    df_b.to_csv(DB_BATIN, index=False)
+                                    conn.update(worksheet="Data Refleksi", data=df_b)
                                 except:
                                     pass
 
-                                pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]).to_csv(DB_SISWA, index=False)
+                                conn.update(worksheet="Master Siswa", data=pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]))
                                 st.success(f"Data Siswa berhasil dikosongkan dan direkam dalam arsip '{periode_siswa}'. Muat ulang (refresh) halaman.")
             else:
                 st.warning("Data Siswa masih kosong.")
@@ -1076,17 +1043,17 @@ elif menu == "Database Management":
 
                     with col_btn1:
                         if st.button("➕ Tambah Data Guru", use_container_width=True):
-                            df_lama_guru = pd.read_csv(DB_GURU)
+                            df_lama_guru = conn.read(worksheet="Master Guru", ttl=0)
                             df_gabung_guru = pd.concat([df_lama_guru, df_upload_guru], ignore_index=True)
                             df_gabung_guru.drop_duplicates(subset=['Nama Guru', 'Unit'], keep='last', inplace=True)
                             df_gabung_guru = df_gabung_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
-                            df_gabung_guru.to_csv(DB_GURU, index=False)
+                            conn.update(worksheet="Master Guru", data=df_gabung_guru)
                             st.success("✅ Data Guru berhasil diperbarui!")
 
                     with col_btn2:
                         if st.button("🔄 Reset Data Guru", use_container_width=True):
                             df_upload_guru = df_upload_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
-                            df_upload_guru.to_csv(DB_GURU, index=False)
+                            conn.update(worksheet="Master Guru", data=df_upload_guru)
                             st.success("✅ Seluruh data guru diganti dengan dokumen baru!")
 
                 except Exception as e:
@@ -1097,7 +1064,7 @@ elif menu == "Database Management":
         # --- UI DIREKTORI MASTER GURU ---
         st.markdown("### 🗂️ Direktori Data Guru")
         try:
-            df_master_guru = pd.read_csv(DB_GURU)
+            df_master_guru = conn.read(worksheet="Master Guru", ttl=0)
             if not df_master_guru.empty:
                 col_nav, col_search = st.columns([2.5, 1])
                 with col_nav:
@@ -1143,13 +1110,13 @@ elif menu == "Database Management":
                             else:
                                 # Arsipkan data staff
                                 try:
-                                    df_s = pd.read_csv(DB_STAFF)
+                                    df_s = conn.read(worksheet="Data Staff", ttl=0)
                                     df_s.loc[df_s['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_guru
-                                    df_s.to_csv(DB_STAFF, index=False)
+                                    conn.update(worksheet="Data Staff", data=df_s)
                                 except:
                                     pass
 
-                                pd.DataFrame(columns=["Nama Guru", "Unit"]).to_csv(DB_GURU, index=False)
+                                conn.update(worksheet="Master Guru", data=pd.DataFrame(columns=["Nama Guru", "Unit"]))
                                 st.success(f"Data Guru berhasil dikosongkan dan direkam dalam arsip '{periode_guru}'. Muat ulang (refresh) halaman.")
             else:
                 st.warning("Data Guru masih kosong.")
@@ -1165,8 +1132,8 @@ elif menu == "Data Archive":
     st.write("---")
 
     try:
-        df_batin_all = pd.read_csv(DB_BATIN)
-        df_staff_all = pd.read_csv(DB_STAFF)
+        df_batin_all = conn.read(worksheet="Data Refleksi", ttl=0)
+        df_staff_all = conn.read(worksheet="Data Staff", ttl=0)
 
         arsip_batin = df_batin_all[df_batin_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
         arsip_staff = df_staff_all[df_staff_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
