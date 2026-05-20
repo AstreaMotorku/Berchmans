@@ -686,7 +686,9 @@ elif menu == "Student Insights":
                             mime="application/pdf",
                             use_container_width=True
                         )
-                    st.dataframe(df_target_terakhir[['Tanggal', 'Kelas', 'Nama Siswa', 'Status Awal', 'Refleksi']], use_container_width=True)
+                    df_target_tampil = df_target_terakhir[['Tanggal', 'Kelas', 'Nama Siswa', 'Status Awal', 'Refleksi']].copy()
+                    df_target_tampil.insert(0, 'No.', range(1, len(df_target_tampil) + 1))
+                    st.dataframe(df_target_tampil, use_container_width=True, hide_index=True)
                     
                     if st.button(f"🧠 Buat Rekap Analisis untuk {target_analisis}"):
                         with st.spinner('Memproses pola analitik data...'):
@@ -740,7 +742,8 @@ elif menu == "Student Insights":
             with tab2:
                 st.markdown("### Seluruh Data Refleksi (Disortir per Unit)")
                 df_batin_sorted = df_batin.sort_values(by=['Unit', 'Kelas', 'Tanggal'], ascending=[True, True, False]).reset_index(drop=True)
-                st.dataframe(df_batin_sorted, use_container_width=True)
+                df_batin_sorted.insert(0, 'No.', range(1, len(df_batin_sorted) + 1))
+                st.dataframe(df_batin_sorted, use_container_width=True, hide_index=True)
                 
     except FileNotFoundError:
         st.error("Database belum terbentuk.")
@@ -831,7 +834,9 @@ elif menu == "Staff Tracker":
                     st.info("Belum ada riwayat konseling aktif.")
                 else:
                     df_staff_db = df_staff_db.sort_values(by='Tanggal', ascending=False).reset_index(drop=True)
-                    st.dataframe(df_staff_db[['Tanggal', 'Unit', 'Nama Staff', 'Detail Konseling']], use_container_width=True)
+                    df_staff_tampil = df_staff_db[['Tanggal', 'Unit', 'Nama Staff', 'Detail Konseling']].copy()
+                    df_staff_tampil.insert(0, 'No.', range(1, len(df_staff_tampil) + 1))
+                    st.dataframe(df_staff_tampil, use_container_width=True, hide_index=True)
 
                     st.markdown("<br><hr>", unsafe_allow_html=True)
                     st.markdown("### 🖨️ Cetak Laporan Konseling (Word)")
@@ -1019,7 +1024,8 @@ elif menu == "Database Management":
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 df_tampil_siswa = df_tampil_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
-                st.dataframe(df_tampil_siswa, use_container_width=True)
+                df_tampil_siswa.insert(0, 'No.', range(1, len(df_tampil_siswa) + 1))
+                st.dataframe(df_tampil_siswa, use_container_width=True, hide_index=True)
                 
                 st.write("---")
                 col_del1, col_del2, col_del3 = st.columns([1,2,1])
@@ -1122,7 +1128,8 @@ elif menu == "Database Management":
 
                 st.markdown("<br>", unsafe_allow_html=True)
                 df_tampil_guru = df_tampil_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
-                st.dataframe(df_tampil_guru, use_container_width=True)
+                df_tampil_guru.insert(0, 'No.', range(1, len(df_tampil_guru) + 1))
+                st.dataframe(df_tampil_guru, use_container_width=True, hide_index=True)
 
                 st.write("---")
                 col_del1, col_del2, col_del3 = st.columns([1,2,1])
@@ -1196,7 +1203,9 @@ elif menu == "Data Archive":
                     if kelas_arsip != "Semua Kelas":
                         df_tampil_arsip_siswa = df_tampil_arsip_siswa[df_tampil_arsip_siswa['Kelas'] == kelas_arsip]
 
-                    st.dataframe(df_tampil_arsip_siswa.sort_values(by=['Tanggal', 'Nama Siswa'], ascending=[False, True]), use_container_width=True)
+                    df_tampil_arsip_siswa = df_tampil_arsip_siswa.sort_values(by=['Tanggal', 'Nama Siswa'], ascending=[False, True]).reset_index(drop=True)
+                    df_tampil_arsip_siswa.insert(0, 'No.', range(1, len(df_tampil_arsip_siswa) + 1))
+                    st.dataframe(df_tampil_arsip_siswa, use_container_width=True, hide_index=True)
 
             with tab_arsip_guru:
                 st.markdown(f"### Riwayat Konseling Staff - Periode: {periode_pilih}")
@@ -1211,7 +1220,9 @@ elif menu == "Data Archive":
                     if unit_arsip_g != "Semua Unit":
                         df_tampil_arsip_staff = df_arsip_staff[df_arsip_staff['Unit'] == unit_arsip_g]
 
-                    st.dataframe(df_tampil_arsip_staff.sort_values(by=['Tanggal', 'Nama Staff'], ascending=[False, True]), use_container_width=True)
+                    df_tampil_arsip_staff = df_tampil_arsip_staff.sort_values(by=['Tanggal', 'Nama Staff'], ascending=[False, True]).reset_index(drop=True)
+                    df_tampil_arsip_staff.insert(0, 'No.', range(1, len(df_tampil_arsip_staff) + 1))
+                    st.dataframe(df_tampil_arsip_staff, use_container_width=True, hide_index=True)
 
     except Exception as e:
         st.error(f"Gagal memuat arsip: {e}")
