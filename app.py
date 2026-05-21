@@ -110,19 +110,13 @@ except Exception as e:
     st.error(f"⚠️ Masalah koneksi: {e}")
 
 # 3. SETUP DATABASE GOOGLE SHEETS
-import streamlit as st
 from streamlit_gsheets import GSheetsConnection
 
 try:
-    # Kita panggil URL langsung dari secrets, kalau gak ada baru pakai string kosong
-    gsheet_url = st.secrets.get("spreadsheet_url", "")
-    if not gsheet_url:
-        st.error("Spreadsheet URL tidak ditemukan di st.secrets!")
-        st.stop()
-        
-    conn = st.connection("gsheets", type=GSheetsConnection, spreadsheet=gsheet_url)
+    # Kita buat koneksi tanpa argumen 'spreadsheet' di awal
+    conn = st.connection("gsheets", type=GSheetsConnection)
 except Exception as e:
-    st.error(f"Gagal menghubungkan ke Google Sheets: {e}")
+    st.error(f"Gagal membuat koneksi: {e}")
     st.stop()
 
 # 4. TEMA & WARNA 
@@ -448,7 +442,11 @@ elif menu == "Data Input Center":
     st.write("Pusat pencatatan data refleksi harian. Pilih metode input yang sesuai dengan kebutuhan.")
     st.write("---")
     
-    df_master_siswa = conn.read(worksheet="Master Siswa", ttl=0)
+    df_master_siswa = conn.read(
+    spreadsheet=st.secrets["spreadsheet_url"], 
+    worksheet="Master Siswa", 
+    ttl=0
+)
     
     tab_manual, tab_excel = st.tabs(["📋 Batch Manual Entry (Per Kelas)", "📊 Bulk Excel Import"])
     
