@@ -110,10 +110,20 @@ except Exception as e:
     st.error(f"⚠️ Masalah koneksi: {e}")
 
 # 3. SETUP DATABASE GOOGLE SHEETS
+import streamlit as st
+from streamlit_gsheets import GSheetsConnection
+
 try:
-    conn = st.connection("gsheets", type=GSheetsConnection)
+    # Kita panggil URL langsung dari secrets, kalau gak ada baru pakai string kosong
+    gsheet_url = st.secrets.get("spreadsheet_url", "")
+    if not gsheet_url:
+        st.error("Spreadsheet URL tidak ditemukan di st.secrets!")
+        st.stop()
+        
+    conn = st.connection("gsheets", type=GSheetsConnection, spreadsheet=gsheet_url)
 except Exception as e:
-    st.error(f"Gagal menghubungkan ke Google Sheets: {e}. Pastikan 'spreadsheet_url' disetting di st.secrets.")
+    st.error(f"Gagal menghubungkan ke Google Sheets: {e}")
+    st.stop()
 
 # 4. TEMA & WARNA 
 st.markdown("""
