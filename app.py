@@ -727,7 +727,11 @@ elif menu == "Staff Tracker":
     st.write("Modul khusus pendampingan, konseling, dan evaluasi kesejahteraan (well-being) Guru & Staff.")
     st.write("---")
 
-    df_staff = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+    try:
+        df_staff = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+    except Exception as e:
+        st.warning("Worksheet Master Guru belum dibuat di Google Sheets.")
+        df_staff = pd.DataFrame(columns=["Nama Guru", "Unit"])
 
     if df_staff.empty:
         st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan Anda telah mengunggah data pada menu Database Management.")
@@ -776,7 +780,12 @@ elif menu == "Staff Tracker":
                                 response = model.generate_content(prompt)
                                 hasil_ai = response.text
 
-                                df_staff_db = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+                                try:
+                                    df_staff_db = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+                                except Exception:
+                                    st.warning("Worksheet Data Staff belum dibuat di Google Sheets.")
+                                    df_staff_db = pd.DataFrame(columns=["Tanggal", "Unit", "Nama Staff", "Detail Konseling", "Analisis AI", "Periode Arsip"])
+
                                 data_baru = pd.DataFrame([{
                                     "Tanggal": tanggal_konseling.strftime("%Y-%m-%d"),
                                     "Unit": unit_staff,
@@ -799,7 +808,11 @@ elif menu == "Staff Tracker":
         with tab_riwayat:
             st.markdown("### 🗂️ Riwayat Konseling Staff")
             try:
-                df_staff_db_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+                try:
+                    df_staff_db_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+                except Exception:
+                    st.warning("Worksheet Data Staff belum dibuat di Google Sheets.")
+                    df_staff_db_all = pd.DataFrame(columns=["Tanggal", "Unit", "Nama Staff", "Detail Konseling", "Analisis AI", "Periode Arsip"])
                 df_staff_db = df_staff_db_all[df_staff_db_all['Periode Arsip'] == 'Aktif']
                 if df_staff_db.empty:
                     st.info("Belum ada riwayat konseling aktif.")
@@ -861,7 +874,11 @@ elif menu == "Database Management":
     # --- KOTAK METRIK REKAPITULASI ---
     try:
         df_siswa = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", ttl=0)
-        df_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+        try:
+            df_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+        except Exception:
+            st.warning("Worksheet Master Guru belum dibuat di Google Sheets.")
+            df_guru = pd.DataFrame(columns=["Nama Guru", "Unit"])
 
         jumlah_siswa = len(df_siswa) if not df_siswa.empty else 0
         jumlah_guru = len(df_guru) if not df_guru.empty else 0
@@ -1047,7 +1064,11 @@ elif menu == "Database Management":
 
                     with col_btn1:
                         if st.button("➕ Tambah Data Guru", use_container_width=True):
-                            df_lama_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+                            try:
+                                df_lama_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+                            except Exception:
+                                st.warning("Worksheet Master Guru belum dibuat di Google Sheets.")
+                                df_lama_guru = pd.DataFrame(columns=["Nama Guru", "Unit"])
                             df_gabung_guru = pd.concat([df_lama_guru, df_upload_guru], ignore_index=True)
                             df_gabung_guru.drop_duplicates(subset=['Nama Guru', 'Unit'], keep='last', inplace=True)
                             df_gabung_guru = df_gabung_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
@@ -1068,7 +1089,12 @@ elif menu == "Database Management":
         # --- UI DIREKTORI MASTER GURU ---
         st.markdown("### 🗂️ Direktori Data Guru")
         try:
-            df_master_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+            try:
+                df_master_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+            except Exception:
+                st.warning("Worksheet Master Guru belum dibuat di Google Sheets.")
+                df_master_guru = pd.DataFrame(columns=["Nama Guru", "Unit"])
+
             if not df_master_guru.empty:
                 col_nav, col_search = st.columns([2.5, 1])
                 with col_nav:
@@ -1114,9 +1140,14 @@ elif menu == "Database Management":
                             else:
                                 # Arsipkan data staff
                                 try:
-                                    df_s = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
-                                    df_s.loc[df_s['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_guru
-                                    conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", data=df_s)
+                                    try:
+                                        df_s = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+                                    except Exception:
+                                        st.warning("Worksheet Data Staff belum dibuat di Google Sheets.")
+                                        df_s = pd.DataFrame(columns=["Tanggal", "Unit", "Nama Staff", "Detail Konseling", "Analisis AI", "Periode Arsip"])
+                                    if not df_s.empty:
+                                        df_s.loc[df_s['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_guru
+                                        conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", data=df_s)
                                 except:
                                     pass
 
@@ -1137,7 +1168,11 @@ elif menu == "Data Archive":
 
     try:
         df_batin_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
-        df_staff_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+        try:
+            df_staff_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+        except Exception:
+            st.warning("Worksheet Data Staff belum dibuat di Google Sheets.")
+            df_staff_all = pd.DataFrame(columns=["Tanggal", "Unit", "Nama Staff", "Detail Konseling", "Analisis AI", "Periode Arsip"])
 
         arsip_batin = df_batin_all[df_batin_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
         arsip_staff = df_staff_all[df_staff_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
