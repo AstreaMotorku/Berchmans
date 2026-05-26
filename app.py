@@ -196,7 +196,7 @@ if menu == "Dashboard":
         st.text_input("Search", placeholder="🔍 Cari siswa...", label_visibility="collapsed")
 
     try:
-        df_all = conn.read(worksheet="Data Refleksi", ttl=0)
+        df_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
         df = df_all[df_all['Periode Arsip'] == 'Aktif']
         if not df.empty:
             # --- EXPORT REPORTS ---
@@ -442,11 +442,7 @@ elif menu == "Data Input Center":
     st.write("Pusat pencatatan data refleksi harian. Pilih metode input yang sesuai dengan kebutuhan.")
     st.write("---")
     
-    df_master_siswa = conn.read(
-    spreadsheet=st.secrets["spreadsheet_url"], 
-    worksheet="Master Siswa", 
-    ttl=0
-)
+    df_master_siswa = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", ttl=0)
     
     tab_manual, tab_excel = st.tabs(["📋 Batch Manual Entry (Per Kelas)", "📊 Bulk Excel Import"])
     
@@ -535,10 +531,10 @@ elif menu == "Data Input Center":
                                 })
                         
                         if data_to_save:
-                            df_batin = conn.read(worksheet="Data Refleksi", ttl=0)
+                            df_batin = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
                             df_baru = pd.DataFrame(data_to_save)
                             df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
-                            conn.update(worksheet="Data Refleksi", data=df_batin)
+                            conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", data=df_batin)
                             st.success(f"✅ {len(data_to_save)} data refleksi siswa dari kelas {kelas_terpilih} berhasil disimpan!")
                         else:
                             st.warning("⚠️ Tidak ada data yang disimpan. Pastikan Anda memilih Konsolasi/Desolasi minimal untuk 1 siswa.")
@@ -557,7 +553,7 @@ elif menu == "Data Input Center":
                     else:
                         df_bulk = pd.read_excel(file_refleksi)
                     
-                    df_batin = conn.read(worksheet="Data Refleksi", ttl=0)
+                    df_batin = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
                     data_baru_list = []
                     
                     for i, row in df_bulk.iterrows():
@@ -574,7 +570,7 @@ elif menu == "Data Input Center":
                     
                     df_baru = pd.DataFrame(data_baru_list)
                     df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
-                    conn.update(worksheet="Data Refleksi", data=df_batin)
+                    conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", data=df_batin)
                     st.success(f"✅ {len(df_bulk)} baris data berhasil dibaca dan disimpan!")
                 except Exception as e:
                     st.error(f"Gagal memproses file: {e}. Pastikan format kolom sesuai dengan standar sistem.")
@@ -588,7 +584,7 @@ elif menu == "Student Insights":
     st.write("---")
     
     try:
-        df_batin_all = conn.read(worksheet="Data Refleksi", ttl=0)
+        df_batin_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
         df_batin = df_batin_all[df_batin_all['Periode Arsip'] == 'Aktif']
 
         if df_batin.empty:
@@ -731,7 +727,7 @@ elif menu == "Staff Tracker":
     st.write("Modul khusus pendampingan, konseling, dan evaluasi kesejahteraan (well-being) Guru & Staff.")
     st.write("---")
 
-    df_staff = conn.read(worksheet="Master Guru", ttl=0)
+    df_staff = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
 
     if df_staff.empty:
         st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan Anda telah mengunggah data pada menu Database Management.")
@@ -780,7 +776,7 @@ elif menu == "Staff Tracker":
                                 response = model.generate_content(prompt)
                                 hasil_ai = response.text
 
-                                df_staff_db = conn.read(worksheet="Data Staff", ttl=0)
+                                df_staff_db = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
                                 data_baru = pd.DataFrame([{
                                     "Tanggal": tanggal_konseling.strftime("%Y-%m-%d"),
                                     "Unit": unit_staff,
@@ -790,7 +786,7 @@ elif menu == "Staff Tracker":
                                     "Periode Arsip": "Aktif"
                                 }])
                                 df_staff_db = pd.concat([df_staff_db, data_baru], ignore_index=True)
-                                conn.update(worksheet="Data Staff", data=df_staff_db)
+                                conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", data=df_staff_db)
 
                                 st.success(f"✅ Data konseling {nama_staff} berhasil disimpan dan dianalisis!")
                                 st.info(hasil_ai)
@@ -803,7 +799,7 @@ elif menu == "Staff Tracker":
         with tab_riwayat:
             st.markdown("### 🗂️ Riwayat Konseling Staff")
             try:
-                df_staff_db_all = conn.read(worksheet="Data Staff", ttl=0)
+                df_staff_db_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
                 df_staff_db = df_staff_db_all[df_staff_db_all['Periode Arsip'] == 'Aktif']
                 if df_staff_db.empty:
                     st.info("Belum ada riwayat konseling aktif.")
@@ -864,8 +860,8 @@ elif menu == "Database Management":
     
     # --- KOTAK METRIK REKAPITULASI ---
     try:
-        df_siswa = conn.read(worksheet="Master Siswa", ttl=0)
-        df_guru = conn.read(worksheet="Master Guru", ttl=0)
+        df_siswa = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", ttl=0)
+        df_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
 
         jumlah_siswa = len(df_siswa) if not df_siswa.empty else 0
         jumlah_guru = len(df_guru) if not df_guru.empty else 0
@@ -926,17 +922,17 @@ elif menu == "Database Management":
 
                     with col_btn1:
                         if st.button("➕ Tambah Data Siswa", use_container_width=True):
-                            df_lama_siswa = conn.read(worksheet="Master Siswa", ttl=0)
+                            df_lama_siswa = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", ttl=0)
                             df_gabung_siswa = pd.concat([df_lama_siswa, df_upload_siswa], ignore_index=True)
                             df_gabung_siswa.drop_duplicates(subset=['Nama Siswa', 'Unit', 'Kelas'], keep='last', inplace=True)
                             df_gabung_siswa = df_gabung_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
-                            conn.update(worksheet="Master Siswa", data=df_gabung_siswa)
+                            conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", data=df_gabung_siswa)
                             st.success("✅ Data Siswa berhasil diperbarui!")
 
                     with col_btn2:
                         if st.button("🔄 Reset Data Siswa", use_container_width=True):
                             df_upload_siswa = df_upload_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
-                            conn.update(worksheet="Master Siswa", data=df_upload_siswa)
+                            conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", data=df_upload_siswa)
                             st.success("✅ Seluruh data siswa diganti dengan dokumen baru!")
 
                 except Exception as e:
@@ -947,7 +943,7 @@ elif menu == "Database Management":
         # --- UI DIREKTORI MASTER SISWA ---
         st.markdown("### 🗂️ Direktori Data Siswa")
         try:
-            df_master_siswa = conn.read(worksheet="Master Siswa", ttl=0)
+            df_master_siswa = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", ttl=0)
             if not df_master_siswa.empty:
                 col_nav, col_search = st.columns([2.5, 1])
                 with col_nav:
@@ -1014,13 +1010,13 @@ elif menu == "Database Management":
                             else:
                                 # Arsipkan data batin
                                 try:
-                                    df_b = conn.read(worksheet="Data Refleksi", ttl=0)
+                                    df_b = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
                                     df_b.loc[df_b['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_siswa
-                                    conn.update(worksheet="Data Refleksi", data=df_b)
+                                    conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", data=df_b)
                                 except:
                                     pass
 
-                                conn.update(worksheet="Master Siswa", data=pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]))
+                                conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", data=pd.DataFrame(columns=["Nama Siswa", "Unit", "Kelas"]))
                                 st.success(f"Data Siswa berhasil dikosongkan dan direkam dalam arsip '{periode_siswa}'. Muat ulang (refresh) halaman.")
             else:
                 st.warning("Data Siswa masih kosong.")
@@ -1051,17 +1047,17 @@ elif menu == "Database Management":
 
                     with col_btn1:
                         if st.button("➕ Tambah Data Guru", use_container_width=True):
-                            df_lama_guru = conn.read(worksheet="Master Guru", ttl=0)
+                            df_lama_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
                             df_gabung_guru = pd.concat([df_lama_guru, df_upload_guru], ignore_index=True)
                             df_gabung_guru.drop_duplicates(subset=['Nama Guru', 'Unit'], keep='last', inplace=True)
                             df_gabung_guru = df_gabung_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
-                            conn.update(worksheet="Master Guru", data=df_gabung_guru)
+                            conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", data=df_gabung_guru)
                             st.success("✅ Data Guru berhasil diperbarui!")
 
                     with col_btn2:
                         if st.button("🔄 Reset Data Guru", use_container_width=True):
                             df_upload_guru = df_upload_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
-                            conn.update(worksheet="Master Guru", data=df_upload_guru)
+                            conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", data=df_upload_guru)
                             st.success("✅ Seluruh data guru diganti dengan dokumen baru!")
 
                 except Exception as e:
@@ -1072,7 +1068,7 @@ elif menu == "Database Management":
         # --- UI DIREKTORI MASTER GURU ---
         st.markdown("### 🗂️ Direktori Data Guru")
         try:
-            df_master_guru = conn.read(worksheet="Master Guru", ttl=0)
+            df_master_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
             if not df_master_guru.empty:
                 col_nav, col_search = st.columns([2.5, 1])
                 with col_nav:
@@ -1118,13 +1114,13 @@ elif menu == "Database Management":
                             else:
                                 # Arsipkan data staff
                                 try:
-                                    df_s = conn.read(worksheet="Data Staff", ttl=0)
+                                    df_s = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
                                     df_s.loc[df_s['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_guru
-                                    conn.update(worksheet="Data Staff", data=df_s)
+                                    conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", data=df_s)
                                 except:
                                     pass
 
-                                conn.update(worksheet="Master Guru", data=pd.DataFrame(columns=["Nama Guru", "Unit"]))
+                                conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", data=pd.DataFrame(columns=["Nama Guru", "Unit"]))
                                 st.success(f"Data Guru berhasil dikosongkan dan direkam dalam arsip '{periode_guru}'. Muat ulang (refresh) halaman.")
             else:
                 st.warning("Data Guru masih kosong.")
@@ -1140,8 +1136,8 @@ elif menu == "Data Archive":
     st.write("---")
 
     try:
-        df_batin_all = conn.read(worksheet="Data Refleksi", ttl=0)
-        df_staff_all = conn.read(worksheet="Data Staff", ttl=0)
+        df_batin_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
+        df_staff_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
 
         arsip_batin = df_batin_all[df_batin_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
         arsip_staff = df_staff_all[df_staff_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
