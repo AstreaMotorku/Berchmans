@@ -64,7 +64,7 @@ def generate_pdf(df, user_name):
     else:
         pdf.cell(0, 8, "Tidak ada siswa dalam daftar atensi.", ln=True)
 
-    return pdf.output(dest='S')
+    return bytes(pdf.output(dest='S'))
 
 # 1. SETUP PAGE
 st.set_page_config(page_title="Berchmans Spirit Center", page_icon="🕊️", layout="wide", initial_sidebar_state="expanded")
@@ -207,7 +207,7 @@ if menu == "Dashboard":
                     df.to_excel(writer, index=False, sheet_name='Dashboard_Data')
                 st.download_button(
                     label="📊 Export Excel",
-                    data=excel_buffer.getvalue(),
+                    data=bytes(excel_buffer.getvalue()),
                     file_name=f"Dashboard_Report_{datetime.now().strftime('%Y%m%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                     use_container_width=True
@@ -216,7 +216,7 @@ if menu == "Dashboard":
                 pdf_bytes = generate_pdf(df, st.session_state.get('username', 'Admin'))
                 st.download_button(
                     label="📄 Export PDF Summary",
-                    data=pdf_bytes,
+                    data=bytes(pdf_bytes),
                     file_name=f"Summary_Batin_{datetime.now().strftime('%Y%m%d')}.pdf",
                     mime="application/pdf",
                     use_container_width=True
@@ -643,7 +643,7 @@ elif menu == "Student Insights":
                             df_target_terakhir.to_excel(writer, index=False, sheet_name='Insight_Data')
                         st.download_button(
                             label="📊 Export Excel",
-                            data=excel_buffer_insight.getvalue(),
+                            data=bytes(excel_buffer_insight.getvalue()),
                             file_name=f"Insight_{target_analisis.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                             use_container_width=True
@@ -652,7 +652,7 @@ elif menu == "Student Insights":
                         pdf_bytes_insight = generate_pdf(df_target_terakhir, st.session_state.get('username', 'Admin'))
                         st.download_button(
                             label="📄 Export PDF Summary",
-                            data=pdf_bytes_insight,
+                            data=bytes(pdf_bytes_insight),
                             file_name=f"Summary_{target_analisis.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
                             mime="application/pdf",
                             use_container_width=True
@@ -700,7 +700,7 @@ elif menu == "Student Insights":
                                 
                                 st.download_button(
                                     label="📥 Download Laporan (Word)",
-                                    data=bio,
+                                    data=bio.getvalue(),
                                     file_name=f"Laporan_Analitik_{target_analisis.replace(' ', '_')}.docx",
                                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                                 )
@@ -842,7 +842,7 @@ elif menu == "Staff Tracker":
 
                             st.download_button(
                                 label="📥 Download Laporan (Word)",
-                                data=bio,
+                                data=bio.getvalue(),
                                 file_name=f"Laporan_Konseling_Staff_{row_data['Nama Staff'].replace(' ', '_')}.docx",
                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                 type="primary",
