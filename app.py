@@ -7,7 +7,9 @@ import os
 import time
 from datetime import datetime
 from docx import Document
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 import io
+import re
 from fpdf import FPDF
 import tempfile
 from streamlit_gsheets import GSheetsConnection
@@ -53,7 +55,8 @@ def add_markdown_to_docx(doc, text):
             elif line.startswith('- ') or line.startswith('* '):
                 doc.add_paragraph(line[2:].replace('**', ''), style='List Bullet')
             elif line[0].isdigit() and line[1:3] in ['. ', ') ']:
-                doc.add_paragraph(line.replace('**', ''), style='List Number')
+                clean_line = re.sub(r'^\d+[\.\)]\s*', '', line)
+                doc.add_paragraph(clean_line.replace('**', ''), style='List Number')
             else:
                 doc.add_paragraph(line.replace('**', ''))
 
@@ -783,31 +786,31 @@ elif menu == "Student Insights":
                                 prompt = f"""
                                 Sebagai seorang konselor pendidikan dan psikologi sekolah, tugasmu adalah menganalisis rekap jurnal refleksi dari {target_analisis} berdasarkan data berikut.
                                 PENTING: Jangan perkenalkan dirimu atau berbasa-basi. Langsung berikan analisisnya secara profesional.
-                                You MUST generate the entire response strictly in Bahasa Indonesia.
+                                Do not mix languages. Use strictly {pilihan_bahasa_insight} for the entire response.
 
                                 Data Refleksi:
                                 {kumpulan_teks}
 
                                 Tolong berikan laporan dengan struktur persis seperti ini (harus sama persis judulnya):
-                                1. Ringkasan / Summary: (Berisi paragraf analisis singkat)
-                                2. Pola Emosi Dominan / Dominant Emotional Patterns: (Berisi bullet points tren konsolasi/desolasi)
-                                3. Rencana Intervensi Khusus / Specific Intervention Plan: (WAJIB menggunakan format Tabel Markdown dengan 4 kolom: | Nama Siswa | Akar Masalah | Rekomendasi Tindakan | Penanggung Jawab |)
-                                4. Rekomendasi Umum / General Recommendations: (Berisi bullet points)
+                                1. Ringkasan: (Berisi paragraf analisis singkat)
+                                2. Pola Emosi Dominan: (Berisi bullet points tren konsolasi/desolasi)
+                                3. Rencana Intervensi Khusus: (WAJIB menggunakan format Tabel Markdown dengan 4 kolom: | Nama Siswa | Akar Masalah | Rekomendasi Tindakan | Penanggung Jawab |)
+                                4. Rekomendasi Umum: (Berisi bullet points)
                                 """
                             else:
                                 prompt = f"""
                                 As a school psychological and educational counselor, your task is to analyze the reflection journal summary from {target_analisis} based on the following data.
                                 IMPORTANT: Do not introduce yourself or make small talk. Provide the analysis directly and professionally.
-                                You MUST generate the entire response strictly in English.
+                                Do not mix languages. Use strictly {pilihan_bahasa_insight} for the entire response.
 
                                 Reflection Data:
                                 {kumpulan_teks}
 
                                 Please provide the report with exactly this structure (headings must match exactly):
-                                1. Ringkasan / Summary: (Contains a short paragraph of analysis)
-                                2. Pola Emosi Dominan / Dominant Emotional Patterns: (Contains bullet points on consolation/desolation trends)
-                                3. Rencana Intervensi Khusus / Specific Intervention Plan: (MUST use a Markdown Table format with 4 columns: | Student Name | Root Cause | Action Recommendation | Person in Charge |)
-                                4. Rekomendasi Umum / General Recommendations: (Contains bullet points)
+                                1. Summary: (Contains a short paragraph of analysis)
+                                2. Dominant Emotional Patterns: (Contains bullet points on consolation/desolation trends)
+                                3. Specific Intervention Plan: (MUST use a Markdown Table format with 4 columns: | Student Name | Root Cause | Action Recommendation | Person in Charge |)
+                                4. General Recommendations: (Contains bullet points)
                                 """
                             
                             try:
@@ -822,12 +825,20 @@ elif menu == "Student Insights":
                                 periode = "Aktif"
 
                                 if pilihan_bahasa_insight == 'Bahasa Indonesia':
-                                    doc.add_heading('LAPORAN BULANAN', level=1)
-                                    header_teks = f"St. Johannes Berchmans School | Target Analisis: {target_analisis} | Periode Pelaporan: {periode} | Tanggal Cetak: {tgl_cetak} | Disusun Oleh: Tim Campus Ministry"
+                                    h1 = doc.add_heading('LAPORAN BULANAN', level=1)
+                                    h1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                    p_school = doc.add_paragraph("St. Johannes Berchmans School")
+                                    p_school.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                    doc.add_paragraph("")
+                                    header_teks = f"Target Analisis: {target_analisis}\nPeriode Pelaporan: {periode}\nTanggal Cetak: {tgl_cetak}\nDisusun Oleh: Tim Campus Ministry"
                                     doc.add_paragraph(header_teks)
                                 else:
-                                    doc.add_heading('MONTHLY REPORT', level=1)
-                                    header_teks = f"St. Johannes Berchmans School | Analysis Target: {target_analisis} | Reporting Period: {periode} | Print Date: {tgl_cetak} | Prepared By: Campus Ministry Team"
+                                    h1 = doc.add_heading('MONTHLY REPORT', level=1)
+                                    h1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                    p_school = doc.add_paragraph("St. Johannes Berchmans School")
+                                    p_school.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                    doc.add_paragraph("")
+                                    header_teks = f"Analysis Target: {target_analisis}\nReporting Period: {periode}\nPrint Date: {tgl_cetak}\nPrepared By: Campus Ministry Team"
                                     doc.add_paragraph(header_teks)
 
                                 doc.add_paragraph("=" * 80)
