@@ -473,16 +473,18 @@ elif menu == "Data Input Center":
                 df_kelas = df_unit_itu[df_unit_itu['Kelas'] == kelas_terpilih]
                 list_nama = sorted(df_kelas['Nama Siswa'].dropna().tolist())
                 
+                str_tgl = tanggal_refleksi.strftime("%Y-%m-%d")
+
                 # Fetch historical logic
                 lookup_data = {}
                 try:
                     df_hist_batin = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
                     if not df_hist_batin.empty:
-                        # Standarisasi Format Tanggal
-                        df_hist_batin['Tanggal'] = df_hist_batin['Tanggal'].astype(str)
-                        str_tgl = tanggal_refleksi.strftime("%Y-%m-%d")
-
-                        df_hist_filter = df_hist_batin[(df_hist_batin['Tanggal'] == str_tgl) & (df_hist_batin['Kelas'] == kelas_terpilih)]
+                        # Standarisasi Format Tanggal dan Sanitasi
+                        df_hist_filter = df_hist_batin[
+                            (df_hist_batin['Tanggal'].astype(str).str.strip() == str_tgl) &
+                            (df_hist_batin['Kelas'].astype(str).str.strip() == str(kelas_terpilih).strip())
+                        ]
 
                         # Buat Lookup Dictionary yang Kuat
                         lookup_data = {row['Nama Siswa']: {'status': row['Status Awal'], 'refleksi': row['Refleksi']} for _, row in df_hist_filter.iterrows()}
@@ -520,9 +522,9 @@ elif menu == "Data Input Center":
                         with c1:
                             st.markdown(f"<div style='padding-top:10px; font-weight:600; color:#002244; font-size:14px;'>{nama_siswa}</div>", unsafe_allow_html=True)
                         with c2:
-                            batin = st.radio("Batin", ["Lewati", "Konsolasi", "Desolasi"], horizontal=True, key=f"status_{nama_siswa}", label_visibility="collapsed", index=default_idx)
+                            batin = st.radio("Batin", ["Lewati", "Konsolasi", "Desolasi"], horizontal=True, key=f"status_{nama_siswa}_{str_tgl}_{kelas_terpilih}", label_visibility="collapsed", index=default_idx)
                         with c3:
-                            refleksi = st.text_input("Refleksi", key=f"refleksi_{nama_siswa}", label_visibility="collapsed", placeholder="Ketik refleksi singkat...", value=default_ref)
+                            refleksi = st.text_input("Refleksi", key=f"refleksi_{nama_siswa}_{str_tgl}_{kelas_terpilih}", label_visibility="collapsed", placeholder="Ketik refleksi singkat...", value=default_ref)
                             
                         input_data.append({"nama": nama_siswa, "batin": batin, "refleksi": refleksi})
                         st.markdown("<div style='margin-bottom: 5px; border-bottom: 1px solid #f0f2f6;'></div>", unsafe_allow_html=True)
