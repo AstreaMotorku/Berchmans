@@ -479,7 +479,7 @@ elif menu == "Data Input Center":
                     df_hist_batin = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
                     if not df_hist_batin.empty:
                         # Standarisasi Format Tanggal
-                        df_hist_batin['Tanggal'] = pd.to_datetime(df_hist_batin['Tanggal']).dt.strftime('%Y-%m-%d')
+                        df_hist_batin['Tanggal'] = df_hist_batin['Tanggal'].astype(str)
                         str_tgl = tanggal_refleksi.strftime("%Y-%m-%d")
 
                         df_hist_filter = df_hist_batin[(df_hist_batin['Tanggal'] == str_tgl) & (df_hist_batin['Kelas'] == kelas_terpilih)]
