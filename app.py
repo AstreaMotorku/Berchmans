@@ -12,7 +12,60 @@ from fpdf import FPDF
 import tempfile
 from streamlit_gsheets import GSheetsConnection
 
+def create_docx_table(doc, table_data):
+    if not table_data: return
+    table = doc.add_table(rows=len(table_data), cols=max(len(row) for row in table_data))
+    table.style = 'Table Grid'
+    for i, row in enumerate(table_data):
+        for j, cell_text in enumerate(row):
+            if j < len(table.columns):
+                cell = table.cell(i, j)
+                cell.text = cell_text.replace('**', '')
+
+def add_markdown_to_docx(doc, text):
+    lines = text.split('\n')
+    in_table = False
+    table_data = []
+
+    for line in lines:
+        line = line.strip()
+        if line.startswith('|') and line.endswith('|'):
+            in_table = True
+            row = [cell.strip() for cell in line.split('|')[1:-1]]
+            if all(all(c == '-' for c in cell.replace(':', '').strip()) for cell in row if cell):
+                continue
+            table_data.append(row)
+        else:
+            if in_table:
+                create_docx_table(doc, table_data)
+                in_table = False
+                table_data = []
+
+            if not line:
+                continue
+
+            if line.startswith('# '):
+                doc.add_heading(line[2:].replace('**', ''), level=1)
+            elif line.startswith('## '):
+                doc.add_heading(line[3:].replace('**', ''), level=2)
+            elif line.startswith('### '):
+                doc.add_heading(line[4:].replace('**', ''), level=3)
+            elif line.startswith('- ') or line.startswith('* '):
+                doc.add_paragraph(line[2:].replace('**', ''), style='List Bullet')
+            elif line[0].isdigit() and line[1:3] in ['. ', ') ']:
+                doc.add_paragraph(line.replace('**', ''), style='List Number')
+            else:
+                doc.add_paragraph(line.replace('**', ''))
+
+    if in_table:
+        create_docx_table(doc, table_data)
+
 class PDFReport(FPDF):
+    def __init__(self, title, subtitle):
+        super().__init__()
+        self.custom_title = title
+        self.custom_subtitle = subtitle
+
     def header(self):
         try:
             self.image('logo.png', 10, 8, 33)
@@ -20,10 +73,10 @@ class PDFReport(FPDF):
             pass
         self.set_font('Arial', 'B', 15)
         self.cell(40)
-        self.cell(110, 10, 'Laporan Perkembangan Batin Siswa', 0, 1, 'C')
+        self.cell(110, 10, self.custom_title, 0, 1, 'C')
         self.set_font('Arial', 'I', 10)
         self.cell(40)
-        self.cell(110, 10, 'Berchmans Spirit Center', 0, 1, 'C')
+        self.cell(110, 10, self.custom_subtitle, 0, 1, 'C')
         self.ln(20)
 
     def footer(self):
@@ -31,13 +84,27 @@ class PDFReport(FPDF):
         self.set_font('Arial', 'I', 8)
         self.cell(0, 10, f'Page {self.page_no()}', 0, 0, 'C')
 
-def generate_pdf(df, user_name):
-    pdf = PDFReport()
+def generate_pdf(df, user_name, target_analisis="Semua Siswa", bahasa='Bahasa Indonesia'):
+    title = 'Laporan Perkembangan Batin Siswa' if bahasa == 'Bahasa Indonesia' else 'Student Inner Development Report'
+    subtitle = 'Berchmans Spirit Center'
+    pdf = PDFReport(title, subtitle)
     pdf.add_page()
     pdf.set_font("Arial", size=12)
 
-    pdf.cell(0, 10, f"Tanggal Laporan: {datetime.now().strftime('%d-%m-%Y')}", ln=True)
-    pdf.cell(0, 10, f"Diunduh oleh: {user_name}", ln=True)
+    tgl_cetak = datetime.now().strftime('%d-%m-%Y')
+    periode = "Aktif" # Could be dynamic if needed
+
+    if bahasa == 'Bahasa Indonesia':
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 8, f"LAPORAN BULANAN | St. Johannes Berchmans School | Target Analisis: {target_analisis} | Periode Pelaporan: {periode} | Tanggal Cetak: {tgl_cetak} | Disusun Oleh: Tim Campus Ministry", ln=True)
+        pdf.set_font("Arial", size=12)
+        pdf.cell(0, 10, f"Diunduh oleh: {user_name}", ln=True)
+    else:
+        pdf.set_font("Arial", 'B', 11)
+        pdf.cell(0, 8, f"MONTHLY REPORT | St. Johannes Berchmans School | Analysis Target: {target_analisis} | Reporting Period: {periode} | Print Date: {tgl_cetak} | Prepared By: Campus Ministry Team", ln=True)
+        pdf.set_font("Arial", size=12)
+        pdf.cell(0, 10, f"Downloaded by: {user_name}", ln=True)
+
     pdf.ln(10)
 
     total_data = len(df)
@@ -46,23 +113,24 @@ def generate_pdf(df, user_name):
     persen_desolasi = 100 - persen_konsolasi if total_data > 0 else 0
 
     pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, "Ringkasan Statistik", ln=True)
+    pdf.cell(0, 10, "Ringkasan Statistik" if bahasa == 'Bahasa Indonesia' else "Statistical Summary", ln=True)
     pdf.set_font("Arial", size=12)
     pdf.cell(0, 10, f"Total Data: {total_data}", ln=True)
-    pdf.cell(0, 10, f"Konsolasi: {persen_konsolasi}%", ln=True)
-    pdf.cell(0, 10, f"Desolasi: {persen_desolasi}%", ln=True)
+    pdf.cell(0, 10, f"Konsolasi / Consolation: {persen_konsolasi}%", ln=True)
+    pdf.cell(0, 10, f"Desolasi / Desolation: {persen_desolasi}%", ln=True)
     pdf.ln(10)
 
     pdf.set_font("Arial", 'B', 14)
-    pdf.cell(0, 10, "Priority List (Memerlukan Atensi Khusus)", ln=True)
+    pdf.cell(0, 10, "Priority List (Memerlukan Atensi Khusus)" if bahasa == 'Bahasa Indonesia' else "Priority List (Requires Special Attention)", ln=True)
     pdf.set_font("Arial", size=12)
 
     df_desolasi_terakhir = df[df['Status Awal'] == 'Desolasi'].tail(15).iloc[::-1]
     if not df_desolasi_terakhir.empty:
         for idx, row in df_desolasi_terakhir.iterrows():
-            pdf.cell(0, 8, f"- {row['Nama Siswa']} ({row['Unit']} - {row['Kelas']}) pada {row['Tanggal']}", ln=True)
+            pdf.cell(0, 8, f"- {row['Nama Siswa']} ({row['Unit']} - {row['Kelas']}) {'pada' if bahasa == 'Bahasa Indonesia' else 'on'} {row['Tanggal']}", ln=True)
     else:
-        pdf.cell(0, 8, "Tidak ada siswa dalam daftar atensi.", ln=True)
+        teks_no_data = "Tidak ada siswa dalam daftar atensi." if bahasa == 'Bahasa Indonesia' else "No students in the attention list."
+        pdf.cell(0, 8, teks_no_data, ln=True)
 
     return bytes(pdf.output(dest='S'))
 
@@ -199,6 +267,9 @@ if menu == "Dashboard":
         df_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
         df = df_all[df_all['Periode Arsip'] == 'Aktif']
         if not df.empty:
+            # --- Pilihan Bahasa ---
+            pilihan_bahasa_dash = st.radio("Pilih Bahasa Laporan / Select Report Language:", ['Bahasa Indonesia', 'English'], horizontal=True, key="bahasa_dash")
+
             # --- EXPORT REPORTS ---
             col_ex1, col_ex2, col_ex3 = st.columns([6, 2, 2])
             with col_ex2:
@@ -213,7 +284,7 @@ if menu == "Dashboard":
                     use_container_width=True
                 )
             with col_ex3:
-                pdf_bytes = generate_pdf(df, st.session_state.get('username', 'Admin'))
+                pdf_bytes = generate_pdf(df, st.session_state.get('username', 'Admin'), "Semua Siswa", pilihan_bahasa_dash)
                 st.download_button(
                     label="📄 Export PDF Summary",
                     data=bytes(pdf_bytes),
@@ -672,6 +743,8 @@ elif menu == "Student Insights":
                 else:
                     df_target_terakhir = df_target.tail(50)
 
+                    pilihan_bahasa_insight = st.radio("Pilih Bahasa Laporan / Select Report Language:", ['Bahasa Indonesia', 'English'], horizontal=True, key="bahasa_insight")
+
                     col_insight1, col_insight2, col_insight3 = st.columns([6, 2, 2])
                     with col_insight1:
                         st.markdown(f"**Riwayat Refleksi: {target_analisis}**")
@@ -687,7 +760,7 @@ elif menu == "Student Insights":
                             use_container_width=True
                         )
                     with col_insight3:
-                        pdf_bytes_insight = generate_pdf(df_target_terakhir, st.session_state.get('username', 'Admin'))
+                        pdf_bytes_insight = generate_pdf(df_target_terakhir, st.session_state.get('username', 'Admin'), target_analisis, pilihan_bahasa_insight)
                         st.download_button(
                             label="📄 Export PDF Summary",
                             data=bytes(pdf_bytes_insight),
@@ -705,18 +778,37 @@ elif menu == "Student Insights":
                             for index, row in df_target_terakhir.iterrows():
                                 kumpulan_teks += f"- [{row['Tanggal']}] {row['Nama Siswa']} ({row['Kelas']}) - {row['Status Awal']}: {row['Refleksi']}\n"
                             
-                            prompt = f"""
-                            Sebagai seorang konselor pendidikan dan psikologi sekolah, tugasmu adalah menganalisis rekap jurnal refleksi dari {target_analisis} berdasarkan data berikut. 
-                            PENTING: Jangan perkenalkan dirimu atau berbasa-basi. Langsung berikan analisisnya secara profesional.
 
-                            Data Refleksi:
-                            {kumpulan_teks}
+                            if pilihan_bahasa_insight == 'Bahasa Indonesia':
+                                prompt = f"""
+                                Sebagai seorang konselor pendidikan dan psikologi sekolah, tugasmu adalah menganalisis rekap jurnal refleksi dari {target_analisis} berdasarkan data berikut.
+                                PENTING: Jangan perkenalkan dirimu atau berbasa-basi. Langsung berikan analisisnya secara profesional.
+                                You MUST generate the entire response strictly in Bahasa Indonesia.
 
-                            Tolong berikan laporan dengan format:
-                            1. **Pola Emosi Dominan:** (Bagaimana tren emosi mayoritas? Apa tema atau pemicu utamanya?)
-                            2. **Kesimpulan Ringkas:** (Kondisi psikologis dan dinamika batin saat ini)
-                            3. **Rekomendasi Pendampingan:** (Langkah nyata yang sangat spesifik untuk pimpinan unit / wali kelas / guru BK)
-                            """
+                                Data Refleksi:
+                                {kumpulan_teks}
+
+                                Tolong berikan laporan dengan struktur persis seperti ini (harus sama persis judulnya):
+                                1. Ringkasan / Summary: (Berisi paragraf analisis singkat)
+                                2. Pola Emosi Dominan / Dominant Emotional Patterns: (Berisi bullet points tren konsolasi/desolasi)
+                                3. Rencana Intervensi Khusus / Specific Intervention Plan: (WAJIB menggunakan format Tabel Markdown dengan 4 kolom: | Nama Siswa | Akar Masalah | Rekomendasi Tindakan | Penanggung Jawab |)
+                                4. Rekomendasi Umum / General Recommendations: (Berisi bullet points)
+                                """
+                            else:
+                                prompt = f"""
+                                As a school psychological and educational counselor, your task is to analyze the reflection journal summary from {target_analisis} based on the following data.
+                                IMPORTANT: Do not introduce yourself or make small talk. Provide the analysis directly and professionally.
+                                You MUST generate the entire response strictly in English.
+
+                                Reflection Data:
+                                {kumpulan_teks}
+
+                                Please provide the report with exactly this structure (headings must match exactly):
+                                1. Ringkasan / Summary: (Contains a short paragraph of analysis)
+                                2. Pola Emosi Dominan / Dominant Emotional Patterns: (Contains bullet points on consolation/desolation trends)
+                                3. Rencana Intervensi Khusus / Specific Intervention Plan: (MUST use a Markdown Table format with 4 columns: | Student Name | Root Cause | Action Recommendation | Person in Charge |)
+                                4. Rekomendasi Umum / General Recommendations: (Contains bullet points)
+                                """
                             
                             try:
                                 response = model.generate_content(prompt)
@@ -725,19 +817,29 @@ elif menu == "Student Insights":
 
                                 # --- KODE BARU UNTUK DOWNLOAD WORD ---
                                 doc = Document()
-                                doc.add_heading('LAPORAN ANALITIK BINA IMAN & PSIKOLOGIS', level=1)
-                                doc.add_paragraph(f"Target Analisis: {target_analisis}")
-                                doc.add_paragraph(f"Tanggal Cetak: {datetime.now().strftime('%d-%m-%Y %H:%M')}")
                                 
-                                teks_bersih = response.text.replace('**', '')
-                                doc.add_paragraph(teks_bersih)
+                                tgl_cetak = datetime.now().strftime('%d-%m-%Y %H:%M')
+                                periode = "Aktif"
+
+                                if pilihan_bahasa_insight == 'Bahasa Indonesia':
+                                    doc.add_heading('LAPORAN BULANAN', level=1)
+                                    header_teks = f"St. Johannes Berchmans School | Target Analisis: {target_analisis} | Periode Pelaporan: {periode} | Tanggal Cetak: {tgl_cetak} | Disusun Oleh: Tim Campus Ministry"
+                                    doc.add_paragraph(header_teks)
+                                else:
+                                    doc.add_heading('MONTHLY REPORT', level=1)
+                                    header_teks = f"St. Johannes Berchmans School | Analysis Target: {target_analisis} | Reporting Period: {periode} | Print Date: {tgl_cetak} | Prepared By: Campus Ministry Team"
+                                    doc.add_paragraph(header_teks)
+
+                                doc.add_paragraph("=" * 80)
+
+                                add_markdown_to_docx(doc, response.text)
                                 
                                 bio = io.BytesIO()
                                 doc.save(bio)
                                 bio.seek(0)
                                 
                                 st.download_button(
-                                    label="📥 Download Laporan (Word)",
+                                    label="📥 Download Laporan (Word)" if pilihan_bahasa_insight == 'Bahasa Indonesia' else "📥 Download Report (Word)",
                                     data=bio.getvalue(),
                                     file_name=f"Laporan_Analitik_{target_analisis.replace(' ', '_')}.docx",
                                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document"
