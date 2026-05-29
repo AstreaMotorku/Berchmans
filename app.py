@@ -474,17 +474,18 @@ elif menu == "Data Input Center":
                 list_nama = sorted(df_kelas['Nama Siswa'].dropna().tolist())
                 
                 # Fetch historical logic
-                lookup_history = {}
+                lookup_data = {}
                 try:
                     df_hist_batin = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
                     if not df_hist_batin.empty:
+                        # Standarisasi Format Tanggal
+                        df_hist_batin['Tanggal'] = pd.to_datetime(df_hist_batin['Tanggal']).dt.strftime('%Y-%m-%d')
                         str_tgl = tanggal_refleksi.strftime("%Y-%m-%d")
+
                         df_hist_filter = df_hist_batin[(df_hist_batin['Tanggal'] == str_tgl) & (df_hist_batin['Kelas'] == kelas_terpilih)]
-                        for _, row in df_hist_filter.iterrows():
-                            lookup_history[row['Nama Siswa']] = {
-                                "batin": row['Status Awal'],
-                                "refleksi": row['Refleksi'] if pd.notna(row['Refleksi']) else ""
-                            }
+
+                        # Buat Lookup Dictionary yang Kuat
+                        lookup_data = {row['Nama Siswa']: {'status': row['Status Awal'], 'refleksi': row['Refleksi']} for _, row in df_hist_filter.iterrows()}
                 except Exception as e:
                     st.warning("Gagal memuat history Data Refleksi.")
                     pass
@@ -500,28 +501,30 @@ elif menu == "Data Input Center":
                 with st.form("batch_form", border=False):
                     input_data = []
                     
-                    for nama in list_nama:
+                    for nama_siswa in list_nama:
                         c1, c2, c3 = st.columns([1.5, 2.5, 3])
 
-                        # Pre-populate logic
-                        default_idx = 0
-                        default_ref = ""
-                        if nama in lookup_history:
-                            hist_batin = lookup_history[nama]["batin"]
-                            if hist_batin == "Konsolasi":
-                                default_idx = 1
-                            elif hist_batin == "Desolasi":
-                                default_idx = 2
-                            default_ref = lookup_history[nama]["refleksi"]
+                        # Ambil data dari lookup
+                        data_siswa = lookup_data.get(nama_siswa, {})
+
+                        # Tentukan default index untuk st.radio
+                        status_mapping = {'Lewati': 0, 'Konsolasi': 1, 'Desolasi': 2}
+                        status_awal = data_siswa.get('status')
+                        default_idx = status_mapping.get(status_awal, 0)
+
+                        # Tentukan default value untuk st.text_input
+                        default_ref = data_siswa.get('refleksi', '')
+                        if pd.isna(default_ref):
+                            default_ref = ''
 
                         with c1:
-                            st.markdown(f"<div style='padding-top:10px; font-weight:600; color:#002244; font-size:14px;'>{nama}</div>", unsafe_allow_html=True)
+                            st.markdown(f"<div style='padding-top:10px; font-weight:600; color:#002244; font-size:14px;'>{nama_siswa}</div>", unsafe_allow_html=True)
                         with c2:
-                            batin = st.radio("Batin", ["Lewati", "Konsolasi", "Desolasi"], horizontal=True, key=f"batin_{nama}", label_visibility="collapsed", index=default_idx)
+                            batin = st.radio("Batin", ["Lewati", "Konsolasi", "Desolasi"], horizontal=True, key=f"status_{nama_siswa}", label_visibility="collapsed", index=default_idx)
                         with c3:
-                            refleksi = st.text_input("Refleksi", key=f"ref_{nama}", label_visibility="collapsed", placeholder="Ketik refleksi singkat...", value=default_ref)
+                            refleksi = st.text_input("Refleksi", key=f"refleksi_{nama_siswa}", label_visibility="collapsed", placeholder="Ketik refleksi singkat...", value=default_ref)
                             
-                        input_data.append({"nama": nama, "batin": batin, "refleksi": refleksi})
+                        input_data.append({"nama": nama_siswa, "batin": batin, "refleksi": refleksi})
                         st.markdown("<div style='margin-bottom: 5px; border-bottom: 1px solid #f0f2f6;'></div>", unsafe_allow_html=True)
                         
                     st.markdown("<br>", unsafe_allow_html=True)
