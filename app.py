@@ -1339,6 +1339,12 @@ elif menu == "Data Archive":
         df_batin_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
         df_staff_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
 
+        if 'Periode Arsip' not in df_batin_all.columns:
+            df_batin_all['Periode Arsip'] = '-'
+
+        if 'Periode Arsip' not in df_staff_all.columns:
+            df_staff_all['Periode Arsip'] = '-'
+
         arsip_batin = df_batin_all[df_batin_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
         arsip_staff = df_staff_all[df_staff_all['Periode Arsip'] != 'Aktif']['Periode Arsip'].unique().tolist()
 
