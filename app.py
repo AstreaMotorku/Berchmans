@@ -13,6 +13,39 @@ import re
 from fpdf import FPDF
 import tempfile
 from streamlit_gsheets import GSheetsConnection
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaIoBaseUpload
+
+def upload_to_drive(df, filename):
+    folder_id = '19uOANC2-zqMJOZqDSJBqEfNOklwCFLAd'
+    try:
+        credentials_dict = st.secrets["connections"]["gsheets"]
+        creds = service_account.Credentials.from_service_account_info(
+            credentials_dict,
+            scopes=['https://www.googleapis.com/auth/drive.file']
+        )
+        service = build('drive', 'v3', credentials=creds)
+
+        # Convert DataFrame to CSV string
+        csv_data = df.to_csv(index=False).encode('utf-8')
+        file_stream = io.BytesIO(csv_data)
+
+        file_metadata = {
+            'name': filename,
+            'parents': [folder_id]
+        }
+
+        media = MediaIoBaseUpload(file_stream, mimetype='text/csv', resumable=True)
+
+        file = service.files().create(
+            body=file_metadata,
+            media_body=media,
+            fields='id'
+        ).execute()
+        return True, file.get('id')
+    except Exception as e:
+        return False, str(e)
 
 def create_docx_table(doc, table_data):
     if not table_data: return
@@ -1315,6 +1348,24 @@ elif menu == "Data Archive":
             st.info("Belum ada data yang diarsipkan.")
         else:
             periode_pilih = st.selectbox("Pilih Periode Arsip:", semua_arsip)
+
+            if st.button("Backup Arsip ke Google Drive"):
+                with st.spinner("Mencadangkan data ke Google Drive..."):
+                    df_arsip_siswa = df_batin_all[df_batin_all['Periode Arsip'] == periode_pilih]
+                    df_arsip_staff = df_staff_all[df_staff_all['Periode Arsip'] == periode_pilih]
+
+                    success_siswa, msg_siswa = upload_to_drive(df_arsip_siswa, f"Arsip_Siswa_{periode_pilih}.csv")
+                    success_staff, msg_staff = upload_to_drive(df_arsip_staff, f"Arsip_Staff_{periode_pilih}.csv")
+
+                    if success_siswa and success_staff:
+                        st.success(f"Berhasil mencadangkan arsip periode {periode_pilih} ke Google Drive!")
+                    else:
+                        st.error("Gagal mencadangkan data.")
+                        if not success_siswa:
+                            st.error(f"Error Siswa: {msg_siswa}")
+                        if not success_staff:
+                            st.error(f"Error Staff: {msg_staff}")
+
             st.write("---")
 
             tab_arsip_siswa, tab_arsip_guru = st.tabs(["🎓 Arsip Refleksi Siswa", "👨‍🏫 Arsip Konseling Staff"])

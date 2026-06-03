@@ -7,3 +7,4 @@ fpdf2
 st-gsheets-connection
 google-generativeai
 python-docx
+google-api-python-client
