@@ -18,7 +18,6 @@ from googleapiclient.discovery import build
 from googleapiclient.http import MediaIoBaseUpload
 
 def upload_to_drive(df, filename):
-    folder_id = '19uOANC2-zqMJOZqDSJBqEfNOklwCFLAd'
     try:
         credentials_dict = st.secrets["connections"]["gsheets"]
         creds = service_account.Credentials.from_service_account_info(
@@ -31,19 +30,20 @@ def upload_to_drive(df, filename):
         csv_data = df.to_csv(index=False).encode('utf-8')
         file_stream = io.BytesIO(csv_data)
 
+        folder_id = '19uOANC2-zqMJOZqDSJBqEfNOklwCFLAd'
         file_metadata = {
             'name': filename,
-            'parents': [folder_id]
+            'parents': [folder_id]  # Ini wajib ada agar masuk ke folder spesifik
         }
-
         media = MediaIoBaseUpload(file_stream, mimetype='text/csv', resumable=True)
 
-        file = service.files().create(
+        # Pastikan pemanggilan create() menggunakan body=file_metadata
+        uploaded_file = service.files().create(
             body=file_metadata,
             media_body=media,
             fields='id'
         ).execute()
-        return True, file.get('id')
+        return True, uploaded_file.get('id')
     except Exception as e:
         return False, str(e)
 
