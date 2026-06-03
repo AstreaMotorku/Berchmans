@@ -655,6 +655,20 @@ elif menu == "Data Input Center":
     with tab_excel:
         st.markdown("### 📊 Bulk Excel Import")
         st.info("Upload Template Refleksi offline dalam format CSV/Excel. Cocok untuk input data massal dari Google Form yang diunduh ke Excel.")
+
+        # Download Template
+        template_columns = ['Tanggal', 'Unit', 'Kelas', 'Nama Siswa', 'Status Awal', 'Refleksi']
+        df_template = pd.DataFrame(columns=template_columns)
+        csv_template = df_template.to_csv(index=False).encode('utf-8')
+
+        st.download_button(
+            label="⬇️ Download Template Excel/CSV",
+            data=csv_template,
+            file_name="template_bulk_import_refleksi.csv",
+            mime="text/csv",
+            key="download_template_bulk"
+        )
+
         file_refleksi = st.file_uploader("Upload File Refleksi", type=['csv', 'xlsx'], key="bulk")
         
         if file_refleksi:
@@ -665,25 +679,27 @@ elif menu == "Data Input Center":
                     else:
                         df_bulk = pd.read_excel(file_refleksi)
                     
-                    df_batin = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
-                    data_baru_list = []
+                    # Sanitize columns
+                    df_bulk.columns = df_bulk.columns.str.strip()
                     
-                    for i, row in df_bulk.iterrows():
-                        tgl_input = row.get('Tanggal', datetime.now().strftime("%Y-%m-%d"))
-                        data_baru_list.append({
-                            "Tanggal": tgl_input,
-                            "Unit": row.get('Unit', '-'),
-                            "Kelas": row.get('Kelas', '-'),
-                            "Nama Siswa": row.get('Nama Lengkap', row.get('Nama Siswa', 'Anonim')),
-                            "Status Awal": row.get('Dominasi Batin', 'Tidak Diketahui'),
-                            "Refleksi": row.get('Teks Refleksi', ''),
-                            "Periode Arsip": "Aktif"
-                        })
+                    # Ignore 'Timestamp' or 'Waktu' if they exist, implicitly done by checking exact required columns
                     
-                    df_baru = pd.DataFrame(data_baru_list)
-                    df_batin = pd.concat([df_batin, df_baru], ignore_index=True)
-                    conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", data=df_batin)
-                    st.success(f"✅ {len(df_bulk)} baris data berhasil dibaca dan disimpan!")
+                    # Validation
+                    missing_cols = [col for col in template_columns if col not in df_bulk.columns]
+                    if missing_cols:
+                        st.error(f"Format tidak sesuai. Kolom yang hilang: {', '.join(missing_cols)}. Pastikan file Anda memiliki kolom: {', '.join(template_columns)}")
+                    else:
+                        # Only keep required columns
+                        df_baru = df_bulk[template_columns].copy()
+                        df_baru['Periode Arsip'] = 'Aktif'
+
+                        df_lama = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
+
+                        df_gabungan = pd.concat([df_lama, df_baru], ignore_index=True)
+                        conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", data=df_gabungan)
+
+                        st.success("✅ Data berhasil diimpor!")
+                        st.balloons()
                 except Exception as e:
                     st.error(f"Gagal memproses file: {e}. Pastikan format kolom sesuai dengan standar sistem.")
 
