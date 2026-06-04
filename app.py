@@ -41,7 +41,8 @@ def upload_to_drive(df, filename):
         uploaded_file = service.files().create(
             body=file_metadata,
             media_body=media,
-            fields='id'
+            fields='id',
+            supportsAllDrives=True  # Parameter sakti wajib tambah
         ).execute()
         return True, uploaded_file.get('id')
     except Exception as e:
