@@ -1103,6 +1103,18 @@ elif menu == "Database Management":
         col_up1, col_up2 = st.columns([1, 1])
         with col_up1:
             st.info("Pastikan format kolom Excel/CSV memuat: **Nama Siswa**, **Unit**, dan **Kelas**.")
+
+            # Buat Template Master Siswa
+            df_template_siswa = pd.DataFrame(columns=['Nama Siswa', 'Unit', 'Kelas'])
+            csv_template_siswa = df_template_siswa.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Template Master Siswa",
+                data=csv_template_siswa,
+                file_name="template_master_siswa.csv",
+                mime="text/csv",
+                key="download_template_siswa"
+            )
+
             file_siswa = st.file_uploader("Unggah Dokumen Siswa (CSV/Excel)", type=['csv', 'xlsx'], key="upload_siswa")
 
         with col_up2:
@@ -1229,6 +1241,18 @@ elif menu == "Database Management":
         col_up1, col_up2 = st.columns([1, 1])
         with col_up1:
             st.info("Pastikan format kolom Excel/CSV memuat: **Nama Guru** dan **Unit**.")
+
+            # Buat Template Master Guru
+            df_template_guru = pd.DataFrame(columns=['Nama Guru', 'Unit'])
+            csv_template_guru = df_template_guru.to_csv(index=False).encode('utf-8')
+            st.download_button(
+                label="📥 Download Template Master Guru",
+                data=csv_template_guru,
+                file_name="template_master_guru.csv",
+                mime="text/csv",
+                key="download_template_guru"
+            )
+
             file_guru = st.file_uploader("Unggah Dokumen Guru (CSV/Excel)", type=['csv', 'xlsx'], key="upload_guru")
 
         with col_up2:
