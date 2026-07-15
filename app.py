@@ -1,6 +1,6 @@
 import streamlit as st
 from streamlit_option_menu import option_menu
-import google.generativeai as genai
+from google import genai
 import pandas as pd
 import plotly.express as px
 import os
@@ -201,16 +201,8 @@ if not st.session_state['logged_in']:
 
 # 2. SETUP API & RADAR MODEL OTOMATIS
 try:
-    genai.configure(api_key=os.environ["GEMINI_API_KEY"])
-    valid_models = []
-    for m in genai.list_models():
-        if 'generateContent' in m.supported_generation_methods:
-            valid_models.append(m.name)
-    if valid_models:
-        model_name = valid_models[0].replace("models/", "")
-        model = genai.GenerativeModel(model_name)
-    else:
-        st.error("⚠️ Gagal mengakses model analitik. Periksa konfigurasi sistem.")
+    client = genai.Client(api_key=os.environ.get("GEMINI_API_KEY", ""))
+    model_name = "gemini-2.5-flash"
 except Exception as e:
     st.error(f"⚠️ Masalah koneksi: {e}")
 
@@ -240,7 +232,7 @@ st.markdown("""
 
 # 5. SIDEBAR NAVIGASI
 with st.sidebar:
-    st.image('logo.png', use_container_width=True)
+    st.image('logo.png', width='stretch')
     st.markdown('<p style="color:#8ba1b5; font-size:12px; font-weight:700; letter-spacing:1.5px; margin-bottom: 0px; margin-left: 15px;">MAIN MENU</p>', unsafe_allow_html=True)
     menu = option_menu(
         menu_title=None,
@@ -302,6 +294,7 @@ if menu == "Dashboard":
 
     try:
         df_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
+        df_all.columns = df_all.columns.str.strip()
         df = df_all[df_all['Periode Arsip'] == 'Aktif']
         if not df.empty:
             # --- Pilihan Bahasa ---
@@ -318,7 +311,7 @@ if menu == "Dashboard":
                     data=bytes(excel_buffer.getvalue()),
                     file_name=f"Dashboard_Report_{datetime.now().strftime('%Y%m%d')}.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
+                    width='stretch'
                 )
             with col_ex3:
                 pdf_bytes = generate_pdf(df, st.session_state.get('username', 'Admin'), "Semua Siswa", pilihan_bahasa_dash)
@@ -327,7 +320,7 @@ if menu == "Dashboard":
                     data=bytes(pdf_bytes),
                     file_name=f"Summary_Batin_{datetime.now().strftime('%Y%m%d')}.pdf",
                     mime="application/pdf",
-                    use_container_width=True
+                    width='stretch'
                 )
 
             total_data = len(df)
@@ -377,7 +370,7 @@ if menu == "Dashboard":
                     if 'Desolasi' not in df_mood.columns: df_mood['Desolasi'] = 0
                     df_mood['Total'] = df_mood['Konsolasi'] + df_mood['Desolasi']
                     df_mood['% Konsolasi'] = (df_mood['Konsolasi'] / df_mood['Total'] * 100).round(1)
-                    st.dataframe(df_mood[['Unit', '% Konsolasi', 'Total']], hide_index=True, use_container_width=True)
+                    st.dataframe(df_mood[['Unit', '% Konsolasi', 'Total']], hide_index=True, width='stretch')
                 
             with col_kpi2:
                 st.markdown(f"""
@@ -391,7 +384,7 @@ if menu == "Dashboard":
                     if not df_desolasi.empty:
                         df_desolasi_counts = df_desolasi['Unit'].value_counts().reset_index()
                         df_desolasi_counts.columns = ['Unit', 'Jumlah Desolasi']
-                        st.dataframe(df_desolasi_counts, hide_index=True, use_container_width=True)
+                        st.dataframe(df_desolasi_counts, hide_index=True, width='stretch')
                     else:
                         st.success("Tidak ada data desolasi saat ini.")
                 
@@ -415,7 +408,7 @@ if menu == "Dashboard":
                             if teks_refleksi.strip():
                                 prompt_pola = f"Sebutkan 1 frasa singkat (maksimal 4 kata) yang menjadi tema utama atau masalah paling sering muncul dari kumpulan curhatan ini: '{teks_refleksi}'. Lalu berikan 2 kalimat penjelasan singkat."
                                 try:
-                                    response = model.generate_content(prompt_pola)
+                                    response = client.models.generate_content(model=model_name, contents=prompt_pola)
                                     st.success("Pemindaian Selesai!")
                                     st.info(response.text)
                                 except Exception as e:
@@ -455,7 +448,7 @@ if menu == "Dashboard":
                     legend_title=None,
                     legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                 )
-                st.plotly_chart(fig_bar, use_container_width=True)
+                st.plotly_chart(fig_bar, width='stretch')
 
             with col_mid2:
                 st.markdown("""
@@ -551,6 +544,7 @@ elif menu == "Data Input Center":
     st.write("---")
     
     df_master_siswa = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", ttl=0)
+    df_master_siswa.columns = df_master_siswa.columns.str.strip()
     
     tab_manual, tab_excel = st.tabs(["📋 Batch Manual Entry (Per Kelas)", "📊 Bulk Excel Import"])
     
@@ -587,6 +581,7 @@ elif menu == "Data Input Center":
                 lookup_data = {}
                 try:
                     df_hist_batin = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
+                    df_hist_batin.columns = df_hist_batin.columns.str.strip()
                     if not df_hist_batin.empty:
                         # Standarisasi Format Tanggal dan Sanitasi
                         df_hist_filter = df_hist_batin[
@@ -655,7 +650,7 @@ elif menu == "Data Input Center":
                         </style>
                     """, unsafe_allow_html=True)
                     
-                    submit_btn = st.form_submit_button("💾 Simpan Semua Data Kelas", use_container_width=True)
+                    submit_btn = st.form_submit_button("💾 Simpan Semua Data Kelas", width='stretch')
                     
                     if submit_btn:
                         data_to_save = []
@@ -673,6 +668,7 @@ elif menu == "Data Input Center":
                         
                         if data_to_save:
                             df_batin = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
+                            df_batin.columns = df_batin.columns.str.strip()
 
                             # Clean up old data for the same Tanggal and Kelas to avoid duplicates
                             str_tgl_save = tanggal_refleksi.strftime("%Y-%m-%d")
@@ -728,6 +724,7 @@ elif menu == "Data Input Center":
                         df_baru['Periode Arsip'] = 'Aktif'
 
                         df_lama = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
+                        df_lama.columns = df_lama.columns.str.strip()
 
                         df_gabungan = pd.concat([df_lama, df_baru], ignore_index=True)
                         conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", data=df_gabungan)
@@ -747,6 +744,7 @@ elif menu == "Student Insights":
     
     try:
         df_batin_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
+        df_batin_all.columns = df_batin_all.columns.str.strip()
         df_batin = df_batin_all[df_batin_all['Periode Arsip'] == 'Aktif']
 
         if df_batin.empty:
@@ -810,7 +808,7 @@ elif menu == "Student Insights":
                             data=bytes(excel_buffer_insight.getvalue()),
                             file_name=f"Insight_{target_analisis.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.xlsx",
                             mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                            use_container_width=True
+                            width='stretch'
                         )
                     with col_insight3:
                         pdf_bytes_insight = generate_pdf(df_target_terakhir, st.session_state.get('username', 'Admin'), target_analisis, pilihan_bahasa_insight)
@@ -819,11 +817,11 @@ elif menu == "Student Insights":
                             data=bytes(pdf_bytes_insight),
                             file_name=f"Summary_{target_analisis.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.pdf",
                             mime="application/pdf",
-                            use_container_width=True
+                            width='stretch'
                         )
                     df_target_tampil = df_target_terakhir[['Tanggal', 'Kelas', 'Nama Siswa', 'Status Awal', 'Refleksi']].copy()
                     df_target_tampil.insert(0, 'No.', range(1, len(df_target_tampil) + 1))
-                    st.dataframe(df_target_tampil, use_container_width=True, hide_index=True)
+                    st.dataframe(df_target_tampil, width='stretch', hide_index=True)
                     
                     if st.button(f"🧠 Buat Rekap Analisis untuk {target_analisis}"):
                         with st.spinner('Memproses pola analitik data...'):
@@ -864,7 +862,7 @@ elif menu == "Student Insights":
                                 """
                             
                             try:
-                                response = model.generate_content(prompt)
+                                response = client.models.generate_content(model=model_name, contents=prompt)
                                 st.success("Laporan analitik selesai dibuat.")
                                 st.info(response.text)
 
@@ -915,7 +913,7 @@ elif menu == "Student Insights":
                 st.markdown("### Seluruh Data Refleksi (Disortir per Unit)")
                 df_batin_sorted = df_batin.sort_values(by=['Unit', 'Kelas', 'Tanggal'], ascending=[True, True, False]).reset_index(drop=True)
                 df_batin_sorted.insert(0, 'No.', range(1, len(df_batin_sorted) + 1))
-                st.dataframe(df_batin_sorted, use_container_width=True, hide_index=True)
+                st.dataframe(df_batin_sorted, width='stretch', hide_index=True)
                 
     except FileNotFoundError:
         st.error("Database belum terbentuk.")
@@ -929,6 +927,7 @@ elif menu == "Staff Tracker":
     st.write("---")
 
     df_staff = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+    df_staff.columns = df_staff.columns.str.strip()
 
     if df_staff.empty:
         st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan Anda telah mengunggah data pada menu Database Management.")
@@ -958,7 +957,7 @@ elif menu == "Staff Tracker":
                     </style>
                 """, unsafe_allow_html=True)
 
-                if st.button("💾 Simpan & Analisis AI", use_container_width=True, type="primary"):
+                if st.button("💾 Simpan & Analisis AI", width='stretch', type="primary"):
                     if detail_konseling:
                         with st.spinner("AI sedang memproses analisis psikologis organisasional..."):
                             prompt = f"""
@@ -974,10 +973,11 @@ elif menu == "Staff Tracker":
                             3. **Rekomendasi Tindak Lanjut:** (Langkah konkrit untuk Kepala Sekolah / HRD dalam mendampingi)
                             """
                             try:
-                                response = model.generate_content(prompt)
+                                response = client.models.generate_content(model=model_name, contents=prompt)
                                 hasil_ai = response.text
 
                                 df_staff_db = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+                                df_staff_db.columns = df_staff_db.columns.str.strip()
                                 data_baru = pd.DataFrame([{
                                     "Tanggal": tanggal_konseling.strftime("%Y-%m-%d"),
                                     "Unit": unit_staff,
@@ -1001,6 +1001,7 @@ elif menu == "Staff Tracker":
             st.markdown("### 🗂️ Riwayat Konseling Staff")
             try:
                 df_staff_db_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+                df_staff_db_all.columns = df_staff_db_all.columns.str.strip()
                 df_staff_db = df_staff_db_all[df_staff_db_all['Periode Arsip'] == 'Aktif']
                 if df_staff_db.empty:
                     st.info("Belum ada riwayat konseling aktif.")
@@ -1008,7 +1009,7 @@ elif menu == "Staff Tracker":
                     df_staff_db = df_staff_db.sort_values(by='Tanggal', ascending=False).reset_index(drop=True)
                     df_staff_tampil = df_staff_db[['Tanggal', 'Unit', 'Nama Staff', 'Detail Konseling']].copy()
                     df_staff_tampil.insert(0, 'No.', range(1, len(df_staff_tampil) + 1))
-                    st.dataframe(df_staff_tampil, use_container_width=True, hide_index=True)
+                    st.dataframe(df_staff_tampil, width='stretch', hide_index=True)
 
                     st.markdown("<br><hr>", unsafe_allow_html=True)
                     st.markdown("### 🖨️ Cetak Laporan Konseling (Word)")
@@ -1020,7 +1021,7 @@ elif menu == "Staff Tracker":
 
                     with col_r2:
                         st.markdown("<div style='margin-top:28px;'></div>", unsafe_allow_html=True)
-                        if st.button("Siapkan Dokumen", use_container_width=True):
+                        if st.button("Siapkan Dokumen", width='stretch'):
                             idx = pilihan_cetak == laporan_terpilih
                             row_data = df_staff_db[idx].iloc[0]
 
@@ -1047,7 +1048,7 @@ elif menu == "Staff Tracker":
                                 file_name=f"Laporan_Konseling_Staff_{row_data['Nama Staff'].replace(' ', '_')}.docx",
                                 mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
                                 type="primary",
-                                use_container_width=True
+                                width='stretch'
                             )
             except FileNotFoundError:
                 st.error("Database konseling belum terbentuk.")
@@ -1062,7 +1063,9 @@ elif menu == "Database Management":
     # --- KOTAK METRIK REKAPITULASI ---
     try:
         df_siswa = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", ttl=0)
+        df_siswa.columns = df_siswa.columns.str.strip()
         df_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+        df_guru.columns = df_guru.columns.str.strip()
 
         jumlah_siswa = len(df_siswa) if not df_siswa.empty else 0
         jumlah_guru = len(df_guru) if not df_guru.empty else 0
@@ -1136,8 +1139,9 @@ elif menu == "Database Management":
                     col_btn1, col_btn2 = st.columns(2)
 
                     with col_btn1:
-                        if st.button("➕ Tambah Data Siswa", use_container_width=True):
+                        if st.button("➕ Tambah Data Siswa", width='stretch'):
                             df_lama_siswa = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", ttl=0)
+                            df_lama_siswa.columns = df_lama_siswa.columns.str.strip()
                             df_gabung_siswa = pd.concat([df_lama_siswa, df_upload_siswa], ignore_index=True)
                             df_gabung_siswa.drop_duplicates(subset=['Nama Siswa', 'Unit', 'Kelas'], keep='last', inplace=True)
                             df_gabung_siswa = df_gabung_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
@@ -1145,7 +1149,7 @@ elif menu == "Database Management":
                             st.success("✅ Data Siswa berhasil diperbarui!")
 
                     with col_btn2:
-                        if st.button("🔄 Reset Data Siswa", use_container_width=True):
+                        if st.button("🔄 Reset Data Siswa", width='stretch'):
                             df_upload_siswa = df_upload_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
                             conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", data=df_upload_siswa)
                             st.success("✅ Seluruh data siswa diganti dengan dokumen baru!")
@@ -1159,6 +1163,7 @@ elif menu == "Database Management":
         st.markdown("### 🗂️ Direktori Data Siswa")
         try:
             df_master_siswa = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Siswa", ttl=0)
+            df_master_siswa.columns = df_master_siswa.columns.str.strip()
             if not df_master_siswa.empty:
                 col_nav, col_search = st.columns([2.5, 1])
                 with col_nav:
@@ -1211,7 +1216,7 @@ elif menu == "Database Management":
                 st.markdown("<br>", unsafe_allow_html=True)
                 df_tampil_siswa = df_tampil_siswa.sort_values(by=['Unit', 'Kelas', 'Nama Siswa']).reset_index(drop=True)
                 df_tampil_siswa.insert(0, 'No.', range(1, len(df_tampil_siswa) + 1))
-                st.dataframe(df_tampil_siswa, use_container_width=True, hide_index=True)
+                st.dataframe(df_tampil_siswa, width='stretch', hide_index=True)
                 
                 st.write("---")
                 col_del1, col_del2, col_del3 = st.columns([1,2,1])
@@ -1219,13 +1224,14 @@ elif menu == "Database Management":
                     with st.expander("🗑️ Arsipkan & Kosongkan Data Siswa"):
                         st.warning("Tindakan ini akan mengosongkan Master Siswa dan mengarsipkan data refleksi siswa yang aktif.")
                         periode_siswa = st.text_input("Masukkan Nama Periode Arsip (Contoh: 2026/2027 - Ganjil):", key="periode_siswa")
-                        if st.button("Ya, Arsipkan Data Siswa", type="primary", use_container_width=True):
+                        if st.button("Ya, Arsipkan Data Siswa", type="primary", width='stretch'):
                             if periode_siswa.strip() == "":
                                 st.error("Nama periode arsip tidak boleh kosong!")
                             else:
                                 # Arsipkan data batin
                                 try:
                                     df_b = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
+                                    df_b.columns = df_b.columns.str.strip()
                                     df_b.loc[df_b['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_siswa
                                     conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", data=df_b)
                                 except:
@@ -1275,8 +1281,9 @@ elif menu == "Database Management":
                     col_btn1, col_btn2 = st.columns(2)
 
                     with col_btn1:
-                        if st.button("➕ Tambah Data Guru", use_container_width=True):
+                        if st.button("➕ Tambah Data Guru", width='stretch'):
                             df_lama_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+                            df_lama_guru.columns = df_lama_guru.columns.str.strip()
                             df_gabung_guru = pd.concat([df_lama_guru, df_upload_guru], ignore_index=True)
                             df_gabung_guru.drop_duplicates(subset=['Nama Guru', 'Unit'], keep='last', inplace=True)
                             df_gabung_guru = df_gabung_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
@@ -1284,7 +1291,7 @@ elif menu == "Database Management":
                             st.success("✅ Data Guru berhasil diperbarui!")
 
                     with col_btn2:
-                        if st.button("🔄 Reset Data Guru", use_container_width=True):
+                        if st.button("🔄 Reset Data Guru", width='stretch'):
                             df_upload_guru = df_upload_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
                             conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", data=df_upload_guru)
                             st.success("✅ Seluruh data guru diganti dengan dokumen baru!")
@@ -1298,6 +1305,7 @@ elif menu == "Database Management":
         st.markdown("### 🗂️ Direktori Data Guru")
         try:
             df_master_guru = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", ttl=0)
+            df_master_guru.columns = df_master_guru.columns.str.strip()
             if not df_master_guru.empty:
                 col_nav, col_search = st.columns([2.5, 1])
                 with col_nav:
@@ -1329,7 +1337,7 @@ elif menu == "Database Management":
                 st.markdown("<br>", unsafe_allow_html=True)
                 df_tampil_guru = df_tampil_guru.sort_values(by=['Unit', 'Nama Guru']).reset_index(drop=True)
                 df_tampil_guru.insert(0, 'No.', range(1, len(df_tampil_guru) + 1))
-                st.dataframe(df_tampil_guru, use_container_width=True, hide_index=True)
+                st.dataframe(df_tampil_guru, width='stretch', hide_index=True)
 
                 st.write("---")
                 col_del1, col_del2, col_del3 = st.columns([1,2,1])
@@ -1337,13 +1345,14 @@ elif menu == "Database Management":
                     with st.expander("🗑️ Arsipkan & Kosongkan Data Guru"):
                         st.warning("Tindakan ini akan mengosongkan Master Guru dan mengarsipkan data konseling staff yang aktif.")
                         periode_guru = st.text_input("Masukkan Nama Periode Arsip (Contoh: 2026/2027 - Ganjil):", key="periode_guru")
-                        if st.button("Ya, Arsipkan Data Guru", type="primary", use_container_width=True):
+                        if st.button("Ya, Arsipkan Data Guru", type="primary", width='stretch'):
                             if periode_guru.strip() == "":
                                 st.error("Nama periode arsip tidak boleh kosong!")
                             else:
                                 # Arsipkan data staff
                                 try:
                                     df_s = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+                                    df_s.columns = df_s.columns.str.strip()
                                     df_s.loc[df_s['Periode Arsip'] == 'Aktif', 'Periode Arsip'] = periode_guru
                                     conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", data=df_s)
                                 except:
@@ -1366,7 +1375,9 @@ elif menu == "Data Archive":
 
     try:
         df_batin_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Refleksi", ttl=0)
+        df_batin_all.columns = df_batin_all.columns.str.strip()
         df_staff_all = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Data Staff", ttl=0)
+        df_staff_all.columns = df_staff_all.columns.str.strip()
 
         if 'Periode Arsip' not in df_batin_all.columns:
             df_batin_all['Periode Arsip'] = '-'
@@ -1429,7 +1440,7 @@ elif menu == "Data Archive":
 
                     df_tampil_arsip_siswa = df_tampil_arsip_siswa.sort_values(by=['Tanggal', 'Nama Siswa'], ascending=[False, True]).reset_index(drop=True)
                     df_tampil_arsip_siswa.insert(0, 'No.', range(1, len(df_tampil_arsip_siswa) + 1))
-                    st.dataframe(df_tampil_arsip_siswa, use_container_width=True, hide_index=True)
+                    st.dataframe(df_tampil_arsip_siswa, width='stretch', hide_index=True)
 
             with tab_arsip_guru:
                 st.markdown(f"### Riwayat Konseling Staff - Periode: {periode_pilih}")
@@ -1446,7 +1457,7 @@ elif menu == "Data Archive":
 
                     df_tampil_arsip_staff = df_tampil_arsip_staff.sort_values(by=['Tanggal', 'Nama Staff'], ascending=[False, True]).reset_index(drop=True)
                     df_tampil_arsip_staff.insert(0, 'No.', range(1, len(df_tampil_arsip_staff) + 1))
-                    st.dataframe(df_tampil_arsip_staff, use_container_width=True, hide_index=True)
+                    st.dataframe(df_tampil_arsip_staff, width='stretch', hide_index=True)
 
     except Exception as e:
         st.error(f"Gagal memuat arsip: {e}")

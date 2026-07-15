@@ -5,6 +5,6 @@ plotly
 openpyxl
 fpdf2
 st-gsheets-connection
-google-generativeai
+google-genai
 python-docx
 google-api-python-client
