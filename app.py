@@ -1106,12 +1106,14 @@ elif menu == "Database Management":
 
             # Buat Template Master Siswa
             df_template_siswa = pd.DataFrame(columns=['Nama Siswa', 'Unit', 'Kelas'])
-            csv_template_siswa = df_template_siswa.to_csv(index=False).encode('utf-8')
+            excel_buffer_siswa = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer_siswa, engine='openpyxl') as writer:
+                df_template_siswa.to_excel(writer, index=False, sheet_name='Master_Siswa')
             st.download_button(
                 label="📥 Download Template Master Siswa",
-                data=csv_template_siswa,
-                file_name="template_master_siswa.csv",
-                mime="text/csv",
+                data=bytes(excel_buffer_siswa.getvalue()),
+                file_name="template_master_siswa.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key="download_template_siswa"
             )
 
@@ -1244,12 +1246,14 @@ elif menu == "Database Management":
 
             # Buat Template Master Guru
             df_template_guru = pd.DataFrame(columns=['Nama Guru', 'Unit'])
-            csv_template_guru = df_template_guru.to_csv(index=False).encode('utf-8')
+            excel_buffer_guru = io.BytesIO()
+            with pd.ExcelWriter(excel_buffer_guru, engine='openpyxl') as writer:
+                df_template_guru.to_excel(writer, index=False, sheet_name='Master_Guru')
             st.download_button(
                 label="📥 Download Template Master Guru",
-                data=csv_template_guru,
-                file_name="template_master_guru.csv",
-                mime="text/csv",
+                data=bytes(excel_buffer_guru.getvalue()),
+                file_name="template_master_guru.xlsx",
+                mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
                 key="download_template_guru"
             )
 
