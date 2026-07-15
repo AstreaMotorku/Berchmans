@@ -48,7 +48,4 @@ Thumbs.db
 .cache/
 .local/
 .streamlit/secrets.toml
-<<<<<<< HEAD
 streamlit_output.log
-=======
->>>>>>> origin/fix-missing-worksheet-crash-8619920544425409189
