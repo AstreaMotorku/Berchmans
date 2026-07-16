@@ -1014,6 +1014,10 @@ elif menu == "Staff Tracker":
                 except Exception:
                     st.warning("Worksheet Data Staff belum dibuat di Google Sheets.")
                     df_staff_db_all = pd.DataFrame(columns=["Tanggal", "Unit", "Nama Staff", "Detail Konseling", "Analisis AI", "Periode Arsip"])
+
+                if 'Periode Arsip' not in df_staff_db_all.columns:
+                    df_staff_db_all['Periode Arsip'] = 'Aktif'
+
                 df_staff_db = df_staff_db_all[df_staff_db_all['Periode Arsip'] == 'Aktif']
                 if df_staff_db.empty:
                     st.info("Belum ada riwayat konseling aktif.")
