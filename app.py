@@ -1115,11 +1115,16 @@ elif menu == "Staff Tracker":
             with sub_bulk:
                 st.markdown("Unduh template, isi data, dan unggah kembali di sini.")
                 template_df = pd.DataFrame(columns=['Tanggal', 'Unit', 'Nama Guru', 'Momen Paling Hidup', 'Tantangan yang Berulang', 'Pola Emosi - Suara Hati', 'Kehadiran Nilai', 'Gerak ke Depan - Prioritas & Dukungan'])
+
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    template_df.to_excel(writer, index=False, sheet_name='Template')
+
                 st.download_button(
-                    label="📥 Download Template CSV",
-                    data=template_df.to_csv(index=False).encode('utf-8'),
-                    file_name="Template_Bundling_Guru.csv",
-                    mime="text/csv"
+                    label="📥 Download Template Excel",
+                    data=output.getvalue(),
+                    file_name="Template_Bundling_Guru.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
                 uploaded_file = st.file_uploader("Upload file Excel atau CSV", type=['csv', 'xlsx'])
