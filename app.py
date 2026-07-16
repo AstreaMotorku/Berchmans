@@ -936,7 +936,7 @@ elif menu == "Staff Tracker":
     if df_staff.empty:
         st.warning("⚠️ Belum ada data Guru/Staff di Master Data. Pastikan Anda telah mengunggah data pada menu Database Management.")
     else:
-        tab_input, tab_riwayat = st.tabs(["📝 Input Konseling", "🗂️ Riwayat & Laporan Akhir"])
+        tab_input, tab_riwayat, tab_bundling = st.tabs(["📝 Input Konseling", "🗂️ Riwayat & Laporan Akhir", "📦 Monthly Bundling"])
 
         with tab_input:
             col_i1, col_i2 = st.columns([1, 2.5])
@@ -1068,6 +1068,154 @@ elif menu == "Staff Tracker":
                             )
             except FileNotFoundError:
                 st.error("Database konseling belum terbentuk.")
+
+        with tab_bundling:
+            st.markdown("### 📦 Monthly Bundling Guru")
+            sub_manual, sub_bulk, sub_ai = st.tabs(["✍️ Input Manual", "📁 Bulk Upload Excel", "🧠 Analisis AI Kepala Sekolah"])
+
+            with sub_manual:
+                with st.form(key="form_bundling_manual"):
+                    guru_bundling = st.selectbox("Nama Guru", sorted(df_staff['Nama Guru'].dropna().tolist()))
+                    momen_hidup = st.text_area("Momen Paling Hidup")
+                    tantangan = st.text_area("Tantangan yang Berulang")
+                    pola_emosi = st.text_area("Pola Emosi - Suara Hati")
+                    kehadiran_nilai = st.text_area("Kehadiran Nilai")
+                    gerak_depan = st.text_area("Gerak ke Depan - Prioritas & Dukungan")
+
+                    submit_bundling = st.form_submit_button("Simpan Data", type="primary")
+
+                    if submit_bundling:
+                        unit_guru = df_staff.loc[df_staff['Nama Guru'] == guru_bundling, 'Unit'].values[0] if not df_staff.empty else "-"
+                        tanggal_sekarang = datetime.now().strftime("%Y-%m-%d")
+
+                        try:
+                            df_bundling = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", ttl=0)
+                            df_bundling.columns = df_bundling.columns.str.strip()
+                        except Exception:
+                            st.warning("Worksheet Bundling Guru belum dibuat di Google Sheets. Membentuk database baru...")
+                            df_bundling = pd.DataFrame(columns=['Tanggal', 'Unit', 'Nama Guru', 'Momen Paling Hidup', 'Tantangan yang Berulang', 'Pola Emosi - Suara Hati', 'Kehadiran Nilai', 'Gerak ke Depan - Prioritas & Dukungan'])
+
+                        data_baru_bundling = pd.DataFrame([{
+                            'Tanggal': tanggal_sekarang,
+                            'Unit': unit_guru,
+                            'Nama Guru': guru_bundling,
+                            'Momen Paling Hidup': momen_hidup,
+                            'Tantangan yang Berulang': tantangan,
+                            'Pola Emosi - Suara Hati': pola_emosi,
+                            'Kehadiran Nilai': kehadiran_nilai,
+                            'Gerak ke Depan - Prioritas & Dukungan': gerak_depan
+                        }])
+
+                        df_bundling = pd.concat([df_bundling, data_baru_bundling], ignore_index=True)
+                        conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", data=df_bundling)
+                        st.success(f"✅ Data bundling {guru_bundling} berhasil disimpan!")
+                        time.sleep(1)
+                        st.rerun()
+
+            with sub_bulk:
+                st.markdown("Unduh template, isi data, dan unggah kembali di sini.")
+                template_df = pd.DataFrame(columns=['Tanggal', 'Unit', 'Nama Guru', 'Momen Paling Hidup', 'Tantangan yang Berulang', 'Pola Emosi - Suara Hati', 'Kehadiran Nilai', 'Gerak ke Depan - Prioritas & Dukungan'])
+                st.download_button(
+                    label="📥 Download Template CSV",
+                    data=template_df.to_csv(index=False).encode('utf-8'),
+                    file_name="Template_Bundling_Guru.csv",
+                    mime="text/csv"
+                )
+
+                uploaded_file = st.file_uploader("Upload file Excel atau CSV", type=['csv', 'xlsx'])
+                if uploaded_file is not None:
+                    try:
+                        if uploaded_file.name.endswith('.csv'):
+                            df_upload = pd.read_csv(uploaded_file)
+                        else:
+                            df_upload = pd.read_excel(uploaded_file)
+
+                        df_upload.columns = df_upload.columns.str.strip()
+                        kolom_wajib = template_df.columns.tolist()
+                        missing_cols = [col for col in kolom_wajib if col not in df_upload.columns]
+
+                        if missing_cols:
+                            st.error(f"Format file tidak sesuai! Kolom berikut hilang: {', '.join(missing_cols)}")
+                        else:
+                            df_upload = df_upload[kolom_wajib]
+                            st.dataframe(df_upload, width='stretch', hide_index=True)
+
+                            if st.button("Proses Upload Data Bundling"):
+                                try:
+                                    df_bundling = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", ttl=0)
+                                    df_bundling.columns = df_bundling.columns.str.strip()
+                                except Exception:
+                                    st.warning("Worksheet Bundling Guru belum dibuat di Google Sheets. Membentuk database baru...")
+                                    df_bundling = pd.DataFrame(columns=kolom_wajib)
+
+                                df_bundling = pd.concat([df_bundling, df_upload], ignore_index=True)
+                                conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", data=df_bundling)
+                                st.success("✅ Data bundling dari file berhasil diunggah!")
+                                time.sleep(1)
+                                st.rerun()
+
+                    except Exception as e:
+                        st.error(f"Gagal membaca file: {e}")
+
+            with sub_ai:
+                try:
+                    df_bundling_ai = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", ttl=0)
+                    df_bundling_ai.columns = df_bundling_ai.columns.str.strip()
+
+                    if df_bundling_ai.empty:
+                        st.warning("Data Bundling Guru masih kosong.")
+                    else:
+                        target_analisis = st.selectbox("Target Analisis", ["Gambaran Umum Sekolah", "Analisis per Unit", "Analisis Individu (Per Guru)"], key="target_analisis_bundling")
+
+                        df_target = df_bundling_ai.copy()
+                        keterangan_target = "Seluruh Sekolah"
+
+                        if target_analisis == "Analisis per Unit":
+                            unit_pilihan = st.selectbox("Pilih Unit", sorted(df_bundling_ai['Unit'].dropna().unique().tolist()), key="unit_bundling")
+                            df_target = df_bundling_ai[df_bundling_ai['Unit'] == unit_pilihan]
+                            keterangan_target = f"Unit {unit_pilihan}"
+                        elif target_analisis == "Analisis Individu (Per Guru)":
+                            guru_pilihan = st.selectbox("Pilih Nama Guru", sorted(df_bundling_ai['Nama Guru'].dropna().unique().tolist()), key="guru_bundling")
+                            df_target = df_bundling_ai[df_bundling_ai['Nama Guru'] == guru_pilihan]
+                            keterangan_target = f"Guru: {guru_pilihan}"
+
+                        if st.button("🧠 Mulai Analisis AI untuk Laporan Kepala Sekolah", type="primary"):
+                            if df_target.empty:
+                                st.warning(f"Tidak ada data untuk {keterangan_target}.")
+                            else:
+                                with st.spinner(f"AI sedang menganalisis data untuk {keterangan_target}..."):
+                                    data_teks = ""
+                                    for idx, row in df_target.iterrows():
+                                        data_teks += f"Nama Guru: {row['Nama Guru']}\n"
+                                        data_teks += f"Unit: {row['Unit']}\n"
+                                        data_teks += f"Momen Paling Hidup: {row.get('Momen Paling Hidup', '')}\n"
+                                        data_teks += f"Tantangan Berulang: {row.get('Tantangan yang Berulang', '')}\n"
+                                        data_teks += f"Pola Emosi: {row.get('Pola Emosi - Suara Hati', '')}\n"
+                                        data_teks += f"Kehadiran Nilai: {row.get('Kehadiran Nilai', '')}\n"
+                                        data_teks += f"Gerak ke Depan: {row.get('Gerak ke Depan - Prioritas & Dukungan', '')}\n"
+                                        data_teks += "-"*40 + "\n"
+
+                                    prompt_ai = f"""
+                                    Bertindaklah sebagai Konsultan HRD Pendidikan dan Psikolog Organisasi.
+                                    Analisislah data refleksi 'Monthly Bundling' berikut untuk target: {keterangan_target}.
+
+                                    Data Refleksi:
+                                    {data_teks}
+
+                                    Buatlah Executive Summary untuk Kepala Sekolah yang terstruktur, menyoroti:
+                                    1. Pola emosi dominan dan kesejahteraan (well-being) secara umum.
+                                    2. Tantangan berulang yang paling signifikan.
+                                    3. Kehadiran nilai-nilai positif yang masih kuat.
+                                    4. Rekomendasi tindakan (actionable recommendations) untuk mendukung pengembangan dan penyelesaian masalah staf/guru ini.
+                                    """
+                                    try:
+                                        response = client.models.generate_content(model=model_name, contents=prompt_ai)
+                                        st.markdown("### 📊 Hasil Analisis AI")
+                                        st.markdown(response.text)
+                                    except Exception as e:
+                                        st.error(f"Gagal memproses analisis AI: {e}")
+                except Exception:
+                    st.warning("Worksheet Bundling Guru belum terbentuk atau belum ada data.")
 
 # ==========================================
 # HALAMAN 4: DATABASE MANAGEMENT 
