@@ -1075,8 +1075,7 @@ elif menu == "Staff Tracker":
 
             with sub_manual:
                 with st.form(key="form_bundling_manual"):
-                    guru_bundling = st.selectbox("Nama Lengkap", sorted(df_staff['Nama Guru'].dropna().tolist()))
-                    bulan_refleksi = st.selectbox("Bulan yang direfleksikan", ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"])
+                    guru_bundling = st.selectbox("Nama Guru", sorted(df_staff['Nama Guru'].dropna().tolist()))
                     momen_hidup = st.text_area("Momen Paling Hidup")
                     tantangan = st.text_area("Tantangan yang Berulang")
                     pola_emosi = st.text_area("Pola Emosi - Suara Hati")
@@ -1087,22 +1086,21 @@ elif menu == "Staff Tracker":
 
                     if submit_bundling:
                         unit_guru = df_staff.loc[df_staff['Nama Guru'] == guru_bundling, 'Unit'].values[0] if not df_staff.empty else "-"
-                        timestamp_sekarang = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        tanggal_sekarang = datetime.now().strftime("%Y-%m-%d")
 
-                        kolom_wajib_bundling = ['Timestamp', 'Nama Lengkap', 'Bulan yang direfleksikan', 'Unit', 'Momen Paling Hidup', 'Tantangan yang Berulang', 'Pola Emosi - Suara Hati', 'Kehadiran Nilai', 'Gerak ke Depan - Prioritas & Dukungan']
+                        kolom_database_bundling = ['Tanggal', 'Unit', 'Nama Guru', 'Momen Paling Hidup', 'Tantangan yang Berulang', 'Pola Emosi - Suara Hati', 'Kehadiran Nilai', 'Gerak ke Depan - Prioritas & Dukungan']
 
                         try:
                             df_bundling = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", ttl=0)
                             df_bundling.columns = df_bundling.columns.str.strip()
                         except Exception:
                             st.warning("Worksheet Bundling Guru belum dibuat di Google Sheets. Membentuk database baru...")
-                            df_bundling = pd.DataFrame(columns=kolom_wajib_bundling)
+                            df_bundling = pd.DataFrame(columns=kolom_database_bundling)
 
                         data_baru_bundling = pd.DataFrame([{
-                            'Timestamp': timestamp_sekarang,
-                            'Nama Lengkap': guru_bundling,
-                            'Bulan yang direfleksikan': bulan_refleksi,
+                            'Tanggal': tanggal_sekarang,
                             'Unit': unit_guru,
+                            'Nama Guru': guru_bundling,
                             'Momen Paling Hidup': momen_hidup,
                             'Tantangan yang Berulang': tantangan,
                             'Pola Emosi - Suara Hati': pola_emosi,
@@ -1118,8 +1116,13 @@ elif menu == "Staff Tracker":
 
             with sub_bulk:
                 st.markdown("Unduh template, isi data, dan unggah kembali di sini.")
-                kolom_wajib_bundling = ['Timestamp', 'Nama Lengkap', 'Bulan yang direfleksikan', 'Unit', 'Momen Paling Hidup', 'Tantangan yang Berulang', 'Pola Emosi - Suara Hati', 'Kehadiran Nilai', 'Gerak ke Depan - Prioritas & Dukungan']
-                template_df = pd.DataFrame(columns=kolom_wajib_bundling)
+                kolom_google_form = [
+                    'Timestamp', 'Nama Lengkap', 'Bulan yang Direfleksikan', 'Jenjang / Unit',
+                    '1. Pola Keberhasilan - Momen Paling Hidup', '2. Pola Hambatan - Tantangan yang Berulang',
+                    '3. Pola Emosi - Suara Hati Dominan', '3b. Pemicu Emosi tersebut (dalam 1 kalimat)',
+                    '4. Kehadiran Nilai - Kasih dan Kesabaran', '5. Gerak ke Depan - Prioritas & Dukungan'
+                ]
+                template_df = pd.DataFrame(columns=kolom_google_form)
 
                 output = io.BytesIO()
                 with pd.ExcelWriter(output, engine='openpyxl') as writer:
@@ -1141,23 +1144,36 @@ elif menu == "Staff Tracker":
                             df_upload = pd.read_excel(uploaded_file)
 
                         df_upload.columns = df_upload.columns.str.strip()
-                        missing_cols = [col for col in kolom_wajib_bundling if col not in df_upload.columns]
+                        missing_cols = [col for col in kolom_google_form if col not in df_upload.columns]
 
                         if missing_cols:
                             st.error(f"Format file tidak sesuai! Kolom berikut hilang: {', '.join(missing_cols)}")
                         else:
-                            df_upload = df_upload[kolom_wajib_bundling]
+                            df_upload = df_upload[kolom_google_form]
                             st.dataframe(df_upload, width='stretch', hide_index=True)
 
                             if st.button("Proses Upload Data Bundling"):
+                                # Map form columns to database format
+                                df_mapped = pd.DataFrame()
+                                df_mapped['Tanggal'] = df_upload['Timestamp']
+                                df_mapped['Unit'] = df_upload['Jenjang / Unit']
+                                df_mapped['Nama Guru'] = df_upload['Nama Lengkap']
+                                df_mapped['Momen Paling Hidup'] = df_upload['1. Pola Keberhasilan - Momen Paling Hidup']
+                                df_mapped['Tantangan yang Berulang'] = df_upload['2. Pola Hambatan - Tantangan yang Berulang']
+                                df_mapped['Pola Emosi - Suara Hati'] = df_upload['3. Pola Emosi - Suara Hati Dominan'].astype(str) + " - Pemicu: " + df_upload['3b. Pemicu Emosi tersebut (dalam 1 kalimat)'].astype(str)
+                                df_mapped['Kehadiran Nilai'] = df_upload['4. Kehadiran Nilai - Kasih dan Kesabaran']
+                                df_mapped['Gerak ke Depan - Prioritas & Dukungan'] = df_upload['5. Gerak ke Depan - Prioritas & Dukungan']
+
+                                kolom_database_bundling = ['Tanggal', 'Unit', 'Nama Guru', 'Momen Paling Hidup', 'Tantangan yang Berulang', 'Pola Emosi - Suara Hati', 'Kehadiran Nilai', 'Gerak ke Depan - Prioritas & Dukungan']
+
                                 try:
                                     df_bundling = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", ttl=0)
                                     df_bundling.columns = df_bundling.columns.str.strip()
                                 except Exception:
                                     st.warning("Worksheet Bundling Guru belum dibuat di Google Sheets. Membentuk database baru...")
-                                    df_bundling = pd.DataFrame(columns=kolom_wajib_bundling)
+                                    df_bundling = pd.DataFrame(columns=kolom_database_bundling)
 
-                                df_bundling = pd.concat([df_bundling, df_upload], ignore_index=True)
+                                df_bundling = pd.concat([df_bundling, df_mapped], ignore_index=True)
                                 conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", data=df_bundling)
                                 st.success("✅ Data bundling dari file berhasil diunggah!")
                                 time.sleep(1)
@@ -1184,10 +1200,8 @@ elif menu == "Staff Tracker":
                             df_target = df_bundling_ai[df_bundling_ai['Unit'] == unit_pilihan]
                             keterangan_target = f"Unit {unit_pilihan}"
                         elif target_analisis == "Analisis Individu (Per Guru)":
-                            # Check if Nama Lengkap exists, fallback to Nama Guru for backward compatibility
-                            col_nama = 'Nama Lengkap' if 'Nama Lengkap' in df_bundling_ai.columns else 'Nama Guru'
-                            guru_pilihan = st.selectbox("Pilih Nama Guru", sorted(df_bundling_ai[col_nama].dropna().unique().tolist()), key="guru_bundling")
-                            df_target = df_bundling_ai[df_bundling_ai[col_nama] == guru_pilihan]
+                            guru_pilihan = st.selectbox("Pilih Nama Guru", sorted(df_bundling_ai['Nama Guru'].dropna().unique().tolist()), key="guru_bundling")
+                            df_target = df_bundling_ai[df_bundling_ai['Nama Guru'] == guru_pilihan]
                             keterangan_target = f"Guru: {guru_pilihan}"
 
                         if st.button("🧠 Mulai Analisis AI untuk Laporan Kepala Sekolah", type="primary"):
@@ -1197,10 +1211,8 @@ elif menu == "Staff Tracker":
                                 with st.spinner(f"AI sedang menganalisis data untuk {keterangan_target}..."):
                                     data_teks = ""
                                     for idx, row in df_target.iterrows():
-                                        col_nama = 'Nama Lengkap' if 'Nama Lengkap' in row else 'Nama Guru'
-                                        data_teks += f"Nama Guru: {row.get(col_nama, '')}\n"
-                                        data_teks += f"Unit: {row.get('Unit', '')}\n"
-                                        data_teks += f"Bulan Refleksi: {row.get('Bulan yang direfleksikan', '')}\n"
+                                        data_teks += f"Nama Guru: {row['Nama Guru']}\n"
+                                        data_teks += f"Unit: {row['Unit']}\n"
                                         data_teks += f"Momen Paling Hidup: {row.get('Momen Paling Hidup', '')}\n"
                                         data_teks += f"Tantangan Berulang: {row.get('Tantangan yang Berulang', '')}\n"
                                         data_teks += f"Pola Emosi: {row.get('Pola Emosi - Suara Hati', '')}\n"
