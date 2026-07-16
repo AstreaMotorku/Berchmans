@@ -1114,12 +1114,22 @@ elif menu == "Staff Tracker":
 
             with sub_bulk:
                 st.markdown("Unduh template, isi data, dan unggah kembali di sini.")
-                template_df = pd.DataFrame(columns=['Tanggal', 'Unit', 'Nama Guru', 'Momen Paling Hidup', 'Tantangan yang Berulang', 'Pola Emosi - Suara Hati', 'Kehadiran Nilai', 'Gerak ke Depan - Prioritas & Dukungan'])
+                template_df = pd.DataFrame(columns=[
+                    'Timestamp', 'Nama Lengkap', 'Bulan yang Direfleksikan', 'Jenjang / Unit',
+                    '1. Pola Keberhasilan - Momen Paling Hidup', '2. Pola Hambatan - Tantangan yang Berulang',
+                    '3. Pola Emosi - Suara Hati Dominan', '3b. Pemicu Emosi tersebut (dalam 1 kalimat)',
+                    '4. Kehadiran Nilai - Kasih dan Kesabaran', '5. Gerak ke Depan - Prioritas & Dukungan'
+                ])
+                output = io.BytesIO()
+                with pd.ExcelWriter(output, engine='openpyxl') as writer:
+                    template_df.to_excel(writer, index=False)
+                excel_data = output.getvalue()
+
                 st.download_button(
-                    label="📥 Download Template CSV",
-                    data=template_df.to_csv(index=False).encode('utf-8'),
-                    file_name="Template_Bundling_Guru.csv",
-                    mime="text/csv"
+                    label="📥 Download Template Excel",
+                    data=excel_data,
+                    file_name="Template_Bundling_Guru.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
                 uploaded_file = st.file_uploader("Upload file Excel atau CSV", type=['csv', 'xlsx'])
@@ -1131,14 +1141,38 @@ elif menu == "Staff Tracker":
                             df_upload = pd.read_excel(uploaded_file)
 
                         df_upload.columns = df_upload.columns.str.strip()
-                        kolom_wajib = template_df.columns.tolist()
+
+                        # Explicitly set kolom_wajib to expect the new Google Form columns for validation
+                        kolom_wajib = [
+                            'Timestamp', 'Nama Lengkap', 'Bulan yang Direfleksikan', 'Jenjang / Unit',
+                            '1. Pola Keberhasilan - Momen Paling Hidup', '2. Pola Hambatan - Tantangan yang Berulang',
+                            '3. Pola Emosi - Suara Hati Dominan', '3b. Pemicu Emosi tersebut (dalam 1 kalimat)',
+                            '4. Kehadiran Nilai - Kasih dan Kesabaran', '5. Gerak ke Depan - Prioritas & Dukungan'
+                        ]
                         missing_cols = [col for col in kolom_wajib if col not in df_upload.columns]
 
                         if missing_cols:
                             st.error(f"Format file tidak sesuai! Kolom berikut hilang: {', '.join(missing_cols)}")
                         else:
-                            df_upload = df_upload[kolom_wajib]
-                            st.dataframe(df_upload, width='stretch', hide_index=True)
+                            # Map columns from Google Form template to DB format
+                            df_upload.rename(columns={
+                                'Timestamp': 'Tanggal',
+                                'Jenjang / Unit': 'Unit',
+                                'Nama Lengkap': 'Nama Guru',
+                                '1. Pola Keberhasilan - Momen Paling Hidup': 'Momen Paling Hidup',
+                                '2. Pola Hambatan - Tantangan yang Berulang': 'Tantangan yang Berulang',
+                                '4. Kehadiran Nilai - Kasih dan Kesabaran': 'Kehadiran Nilai',
+                                '5. Gerak ke Depan - Prioritas & Dukungan': 'Gerak ke Depan - Prioritas & Dukungan'
+                            }, inplace=True)
+
+                            df_upload['Pola Emosi - Suara Hati'] = df_upload['3. Pola Emosi - Suara Hati Dominan'].fillna('') + " - " + df_upload['3b. Pemicu Emosi tersebut (dalam 1 kalimat)'].fillna('')
+
+                            final_cols = ['Tanggal', 'Unit', 'Nama Guru', 'Momen Paling Hidup', 'Tantangan yang Berulang', 'Pola Emosi - Suara Hati', 'Kehadiran Nilai', 'Gerak ke Depan - Prioritas & Dukungan']
+                            df_upload = df_upload[final_cols]
+
+                            df_display = df_upload.copy()
+                            df_display.insert(0, 'No.', range(1, len(df_display) + 1))
+                            st.dataframe(df_display, width='stretch', hide_index=True)
 
                             if st.button("Proses Upload Data Bundling"):
                                 try:
@@ -1146,7 +1180,7 @@ elif menu == "Staff Tracker":
                                     df_bundling.columns = df_bundling.columns.str.strip()
                                 except Exception:
                                     st.warning("Worksheet Bundling Guru belum dibuat di Google Sheets. Membentuk database baru...")
-                                    df_bundling = pd.DataFrame(columns=kolom_wajib)
+                                    df_bundling = pd.DataFrame(columns=final_cols)
 
                                 df_bundling = pd.concat([df_bundling, df_upload], ignore_index=True)
                                 conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", data=df_bundling)

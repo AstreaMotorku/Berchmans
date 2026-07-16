@@ -52,3 +52,4 @@ Thumbs.db
 streamlit_output.log
 =======
 >>>>>>> origin/fix-missing-worksheet-crash-8619920544425409189
+__pycache__/
