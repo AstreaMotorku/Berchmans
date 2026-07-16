@@ -1367,6 +1367,20 @@ elif menu == "Database Management":
                 df_tampil_guru.insert(0, 'No.', range(1, len(df_tampil_guru) + 1))
                 st.dataframe(df_tampil_guru, width='stretch', hide_index=True)
 
+                with st.expander("🗑️ Hapus Data Guru Spesifik (Manual)"):
+                    col_del_m1, col_del_m2 = st.columns([2, 1])
+                    with col_del_m1:
+                        guru_to_delete = st.selectbox("Pilih Guru yang Ingin Dihapus:", df_tampil_guru['Nama Guru'].tolist(), key="select_del_guru")
+                    with col_del_m2:
+                        st.markdown("<div style='margin-top: 28px;'></div>", unsafe_allow_html=True)
+                        if st.button("❌ Hapus Guru", type="primary", key="btn_del_guru", use_container_width=True):
+                            df_master_guru = df_master_guru[df_master_guru['Nama Guru'] != guru_to_delete]
+                            conn.update(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Master Guru", data=df_master_guru)
+                            st.success(f"✅ Data guru {guru_to_delete} berhasil dihapus!")
+                            import time
+                            time.sleep(1)
+                            st.rerun()
+
                 st.write("---")
                 col_del1, col_del2, col_del3 = st.columns([1,2,1])
                 with col_del2:
