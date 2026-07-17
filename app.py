@@ -1230,7 +1230,7 @@ elif menu == "Staff Tracker":
                                         data_teks += "-"*40 + "\n"
 
                                     prompt_ai = f"""
-                                    Bertindaklah sebagai Konsultan HRD Pendidikan dan Psikolog Organisasi.
+                                    Bertindaklah sebagai Campus Ministry Team.
                                     Analisislah data refleksi 'Monthly Bundling' berikut untuk target: {keterangan_target}.
 
                                     Data Refleksi:
@@ -1241,11 +1241,36 @@ elif menu == "Staff Tracker":
                                     2. Tantangan berulang yang paling signifikan.
                                     3. Kehadiran nilai-nilai positif yang masih kuat.
                                     4. Rekomendasi tindakan (actionable recommendations) untuk mendukung pengembangan dan penyelesaian masalah staf/guru ini.
+
+                                    PENTING:
+                                    Hasilkan seluruh laporan komprehensif ini dalam bahasa Inggris terlebih dahulu (dimulai dengan header "From: Campus Ministry").
+                                    Segera di bawah versi bahasa Inggris, berikan terjemahan lengkapnya dalam bahasa Indonesia (dimulai dengan header "Dari: Campus Ministry").
+                                    Kedua versi bahasa ini harus dihasilkan secara berurutan dalam satu respons tunggal yang sama.
                                     """
                                     try:
                                         response = client.models.generate_content(model=model_name, contents=prompt_ai)
                                         st.markdown("### 📊 Hasil Analisis AI")
                                         st.markdown(response.text)
+
+                                        doc = Document()
+                                        doc.add_heading('LAPORAN MONTHLY BUNDLING', level=1)
+                                        doc.add_paragraph(f"Target Analisis: {target_analisis}")
+                                        doc.add_paragraph("=" * 80)
+
+                                        add_markdown_to_docx(doc, response.text)
+
+                                        bio = io.BytesIO()
+                                        doc.save(bio)
+                                        bio.seek(0)
+
+                                        st.download_button(
+                                            label="📥 Download Laporan (Word)",
+                                            data=bio.getvalue(),
+                                            file_name=f"Laporan_Bundling_{target_analisis.replace(' ', '_')}_{datetime.now().strftime('%Y%m%d')}.docx",
+                                            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                                            type="primary",
+                                            width='stretch'
+                                        )
                                     except Exception as e:
                                         st.error(f"Gagal memproses analisis AI: {e}")
                 except Exception:
