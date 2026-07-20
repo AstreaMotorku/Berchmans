@@ -535,6 +535,43 @@ if menu == "Dashboard":
     except Exception as e:
         st.error(f"Gagal memuat Dashboard: {e}")
 
+    # --- TEACHER & STAFF WELL-BEING ---
+    st.markdown("---")
+    st.markdown("### 👨‍🏫 Teacher & Staff Well-being (Monthly Bundling)")
+
+    try:
+        df_bundling = conn.read(spreadsheet=st.secrets["spreadsheet_url"], worksheet="Bundling Guru", ttl=0)
+        df_bundling.columns = df_bundling.columns.str.strip()
+
+        if df_bundling.empty:
+            st.info("Belum ada data Monthly Bundling guru yang masuk dalam sistem.")
+        else:
+            col_b1, col_b2 = st.columns([1, 2])
+            with col_b1:
+                st.metric(label="Total Teacher Reflections", value=len(df_bundling))
+
+            with col_b2:
+                df_bundling_unit = df_bundling['Unit'].value_counts().reset_index()
+                df_bundling_unit.columns = ['Unit', 'Jumlah']
+                fig_bar_bundling = px.bar(
+                    df_bundling_unit,
+                    y='Unit',
+                    x='Jumlah',
+                    orientation='h',
+                    title="Submissions by Unit"
+                )
+                fig_bar_bundling.update_layout(margin=dict(t=30, b=0, l=0, r=0))
+                st.plotly_chart(fig_bar_bundling, use_container_width=True)
+
+            st.markdown("**5 Most Recent Submissions**")
+            # Only required columns
+            df_bundling_recent = df_bundling[['Tanggal', 'Unit', 'Nama Guru', 'Pola Emosi - Suara Hati']].tail(5).iloc[::-1].reset_index(drop=True)
+            df_bundling_recent.insert(0, 'No.', range(1, len(df_bundling_recent) + 1))
+            st.dataframe(df_bundling_recent, hide_index=True, use_container_width=True)
+
+    except Exception:
+        st.info("Belum ada data Monthly Bundling guru yang masuk dalam sistem.")
+
 # ==========================================
 # HALAMAN 2: DATA INPUT CENTER 
 # ==========================================
